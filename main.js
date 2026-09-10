@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
-import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
 import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
 
 
@@ -16,7 +16,6 @@ let hitTestSource = null;
 let hitTestSourceRequested = false;
 
 let current_object = null;
-let current_url = "1";
 let loading_model = null;
 
 
@@ -31,7 +30,6 @@ function init() {
 
     // SCENE
     scene = new THREE.Scene();
-    scene.background = null;
 
 
     // CAMERA
@@ -43,14 +41,19 @@ function init() {
     );
 
 
-    // LUMIÈRE
+    // LUMIERE
     const light = new THREE.HemisphereLight(
         0xffffff,
         0xbbbbff,
         3
     );
 
-    light.position.set(0.5, 1, 0.25);
+    light.position.set(
+        0.5,
+        1,
+        0.25
+    );
+
     scene.add(light);
 
 
@@ -60,20 +63,24 @@ function init() {
         alpha: true
     });
 
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(
+        window.devicePixelRatio
+    );
 
-    // Fond transparent pour laisser apparaître la caméra AR
-    renderer.setClearAlpha(0);
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
 
     renderer.xr.enabled = true;
-    renderer.xr.setReferenceSpaceType('local');
 
-    document.body.appendChild(renderer.domElement);
+    document.body.appendChild(
+        renderer.domElement
+    );
 
 
     // --------------------------------------------------
-    // ORBIT CONTROLS
+    // CONTROLS POUR ORDINATEUR
     // --------------------------------------------------
 
     controls = new OrbitControls(
@@ -81,12 +88,17 @@ function init() {
         renderer.domElement
     );
 
-    controls.target.set(0, 0, 0);
+    controls.target.set(
+        0,
+        0,
+        0
+    );
+
     controls.update();
 
 
     // --------------------------------------------------
-    // CONTROLLER AR
+    // CONTROLLER
     // --------------------------------------------------
 
     controller = renderer.xr.getController(0);
@@ -100,41 +112,55 @@ function init() {
 
 
     // --------------------------------------------------
-    // BOUTON AR
+    // AR BUTTON
     // --------------------------------------------------
 
     const options = {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay']
+        requiredFeatures: [
+            'hit-test'
+        ],
+
+        optionalFeatures: [
+            'dom-overlay'
+        ],
+
+        domOverlay: {
+            root: document.getElementById(
+                'content'
+            )
+        }
     };
 
-    options.domOverlay = {
-        root: document.getElementById('content')
-    };
 
-    const arButton = ARButton.createButton(
-        renderer,
-        options
+    document.body.appendChild(
+        ARButton.createButton(
+            renderer,
+            options
+        )
     );
-
-    document.body.appendChild(arButton);
 
 
     // --------------------------------------------------
     // RETICULE
     // --------------------------------------------------
 
-    const geometry = new THREE.RingGeometry(
-        0.15,
-        0.20,
-        32
+    const geometry =
+        new THREE.RingGeometry(
+            0.15,
+            0.20,
+            32
+        );
+
+    geometry.rotateX(
+        -Math.PI / 2
     );
 
-    geometry.rotateX(-Math.PI / 2);
 
-    const material = new THREE.MeshBasicMaterial({
-        color: 0xffffff
-    });
+    const material =
+        new THREE.MeshBasicMaterial({
+            color: 0xffffff
+        });
+
 
     reticle = new THREE.Mesh(
         geometry,
@@ -148,7 +174,66 @@ function init() {
 
 
     // --------------------------------------------------
-    // REDIMENSIONNEMENT
+    // SESSION AR
+    // --------------------------------------------------
+
+    renderer.xr.addEventListener(
+        'sessionstart',
+        function () {
+
+            hitTestSource = null;
+            hitTestSourceRequested = false;
+
+            reticle.visible = false;
+
+
+            // Cache le modèle au début de l'AR
+            if (current_object) {
+                current_object.visible = false;
+            }
+
+
+            // Désactive OrbitControls
+            if (controls) {
+                controls.enabled = false;
+            }
+        }
+    );
+
+
+    renderer.xr.addEventListener(
+        'sessionend',
+        function () {
+
+            hitTestSource = null;
+            hitTestSourceRequested = false;
+
+            reticle.visible = false;
+
+
+            // Réactive les contrôles PC
+            if (controls) {
+                controls.enabled = true;
+            }
+
+
+            // Remet le modèle devant la caméra
+            if (current_object) {
+
+                current_object.position.set(
+                    0,
+                    0,
+                    -2
+                );
+
+                current_object.visible = true;
+            }
+        }
+    );
+
+
+    // --------------------------------------------------
+    // RESIZE
     // --------------------------------------------------
 
     window.addEventListener(
@@ -158,61 +243,7 @@ function init() {
 
 
     // --------------------------------------------------
-    // DÉTECTION DU DÉBUT DE L'AR
-    // --------------------------------------------------
-
-    renderer.xr.addEventListener(
-        'sessionstart',
-        function () {
-
-            // On cache le modèle au début de l'AR
-            if (current_object) {
-                current_object.visible = false;
-            }
-
-            // Désactive les contrôles souris pendant l'AR
-            if (controls) {
-                controls.enabled = false;
-            }
-        }
-    );
-
-
-    // --------------------------------------------------
-    // DÉTECTION DE LA FIN DE L'AR
-    // --------------------------------------------------
-
-    renderer.xr.addEventListener(
-        'sessionend',
-        function () {
-
-            hitTestSourceRequested = false;
-            hitTestSource = null;
-
-            reticle.visible = false;
-
-            // Réactive les contrôles sur ordinateur
-            if (controls) {
-                controls.enabled = true;
-            }
-
-            // On remet le modèle devant la caméra sur ordinateur
-            if (current_object) {
-
-                current_object.visible = true;
-
-                current_object.position.set(
-                    0,
-                    0,
-                    -2
-                );
-            }
-        }
-    );
-
-
-    // --------------------------------------------------
-    // BOUCLE DE RENDU
+    // ANIMATION
     // --------------------------------------------------
 
     renderer.setAnimationLoop(
@@ -221,65 +252,76 @@ function init() {
 
 
     // --------------------------------------------------
-    // CHARGEMENT DU MODÈLE PAR DÉFAUT
+    // MODELE PAR DEFAUT
     // --------------------------------------------------
 
-    loadModel("1");
+    loadModel('1');
 }
 
 
 // --------------------------------------------------
-// CHARGER UN MODÈLE
+// CHARGEMENT DU MODELE
 // --------------------------------------------------
 
 function loadModel(model) {
 
-    current_url = model;
     loading_model = model;
 
 
     // Supprime l'ancien modèle
     if (current_object) {
 
-        scene.remove(current_object);
+        scene.remove(
+            current_object
+        );
 
         current_object = null;
     }
 
 
-    const loader = new GLTFLoader();
+    const loader =
+        new GLTFLoader();
 
 
     loader.load(
+
         'model/' + model + '.glb',
 
         function (gltf) {
 
-            // Évite qu'un ancien chargement écrase
-            // le modèle actuellement sélectionné
+            // Vérifie que c'est toujours
+            // le modèle demandé
             if (loading_model !== model) {
                 return;
             }
 
 
-            current_object = gltf.scene;
+            current_object =
+                gltf.scene;
 
 
-            // Ajout dans la scène
-            scene.add(current_object);
-
-
-            // --------------------------------------------------
-            // CENTRAGE DU MODÈLE
-            // --------------------------------------------------
-
-            const box = new THREE.Box3().setFromObject(
+            // Ajout à la scène
+            scene.add(
                 current_object
             );
 
-            const center = box.getCenter(
-                new THREE.Vector3()
-            );
+
+            // --------------------------------------------------
+            // CENTRAGE
+            // --------------------------------------------------
+
+            const box =
+                new THREE.Box3()
+                    .setFromObject(
+                        current_object
+                    );
+
+
+            const center =
+                box.getCenter(
+                    new THREE.Vector3()
+                );
+
 
             current_object.position.sub(
                 center
@@ -296,22 +338,13 @@ function loadModel(model) {
                 -2
             );
 
+
             current_object.visible = true;
 
 
-            // Mise à jour des contrôles
-            controls.target.set(
-                0,
-                0,
-                0
-            );
-
-            controls.update();
-
-
-            // Si on est déjà en AR,
-            // le modèle reste caché jusqu'au placement
+            // Pendant l'AR, on le cache
             if (renderer.xr.isPresenting) {
+
                 current_object.visible = false;
             }
         },
@@ -332,53 +365,50 @@ function loadModel(model) {
 
 
 // --------------------------------------------------
-// MENU : CHOIX DU MODÈLE
+// MENU
 // --------------------------------------------------
 
-$(".ar-object").click(function (event) {
+$('.ar-object').click(
+    function (event) {
 
-    event.preventDefault();
-
-
-    const selected_model = $(this).attr('id');
+        event.preventDefault();
 
 
-    current_url = selected_model;
+        const model =
+            $(this).attr('id');
 
 
-    // On peut changer de modèle uniquement
-    // hors session AR
-    if (!renderer.xr.isPresenting) {
+        // On change de modèle
+        // uniquement hors AR
+        if (!renderer.xr.isPresenting) {
 
-        loadModel(
-            selected_model
-        );
+            loadModel(model);
+        }
+
+
+        closeNav();
     }
-
-
-    closeNav();
-});
+);
 
 
 // --------------------------------------------------
-// PLACER LE MODÈLE EN AR
+// PLACEMENT AR
 // --------------------------------------------------
 
 function onSelect() {
 
-    // Pas de modèle
     if (!current_object) {
         return;
     }
 
 
-    // Pas de surface détectée
     if (!reticle.visible) {
         return;
     }
 
 
-    // Place le modèle à l'endroit du réticule
+    // Position du modèle
+    // sur la surface détectée
     current_object.position.setFromMatrixPosition(
         reticle.matrix
     );
@@ -390,12 +420,18 @@ function onSelect() {
 
 
 // --------------------------------------------------
-// ANIMATION / HIT TEST
+// ANIMATION
 // --------------------------------------------------
 
-function animate(timestamp, frame) {
+function animate(
+    timestamp,
+    frame
+) {
 
-    // Hors AR
+    // --------------------------------------------------
+    // MODE NORMAL / PC
+    // --------------------------------------------------
+
     if (!frame) {
 
         renderer.render(
@@ -407,15 +443,20 @@ function animate(timestamp, frame) {
     }
 
 
+    // --------------------------------------------------
+    // AR
+    // --------------------------------------------------
+
     const referenceSpace =
         renderer.xr.getReferenceSpace();
+
 
     const session =
         renderer.xr.getSession();
 
 
     // --------------------------------------------------
-    // DEMANDE DU HIT TEST
+    // DEMANDE HIT TEST
     // --------------------------------------------------
 
     if (!hitTestSourceRequested) {
@@ -424,32 +465,45 @@ function animate(timestamp, frame) {
 
 
         session
-            .requestReferenceSpace('viewer')
+            .requestReferenceSpace(
+                'viewer'
+            )
 
-            .then(function (viewerSpace) {
+            .then(
+                function (viewerSpace) {
 
-                return session.requestHitTestSource({
-                    space: viewerSpace
-                });
-            })
+                    return session
+                        .requestHitTestSource({
+                            space: viewerSpace
+                        });
+                }
+            )
 
-            .then(function (source) {
+            .then(
+                function (source) {
 
-                hitTestSource = source;
-            })
+                    hitTestSource =
+                        source;
+                }
+            )
 
-            .catch(function (error) {
+            .catch(
+                function (error) {
 
-                console.error(
-                    'Impossible d’activer le Hit Test :',
-                    error
-                );
-            });
+                    console.error(
+                        'Erreur Hit Test :',
+                        error
+                    );
+
+                    hitTestSourceRequested =
+                        false;
+                }
+            );
     }
 
 
     // --------------------------------------------------
-    // RÉSULTATS DU HIT TEST
+    // HIT TEST
     // --------------------------------------------------
 
     if (hitTestSource) {
@@ -460,7 +514,9 @@ function animate(timestamp, frame) {
             );
 
 
-        if (hitTestResults.length > 0) {
+        if (
+            hitTestResults.length > 0
+        ) {
 
             const hit =
                 hitTestResults[0];
@@ -500,7 +556,7 @@ function animate(timestamp, frame) {
 
 
 // --------------------------------------------------
-// REDIMENSIONNEMENT
+// RESIZE
 // --------------------------------------------------
 
 function onWindowResize() {
@@ -512,7 +568,8 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
 
 
-    // Évite l'erreur Three.js pendant l'AR
+    // Important :
+    // ne pas appeler setSize pendant l'AR
     if (!renderer.xr.isPresenting) {
 
         renderer.setSize(
