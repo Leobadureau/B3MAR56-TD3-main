@@ -1,39 +1,11 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<title>TP</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<link type="text/css" rel="stylesheet" href="main.css">
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-</head>
-<body>
-
-<div id="content">
-<div id="mySidenav" class="sidenav">
-<a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-<a class="ar-object" id="1" href="#">item_1</a>
-<a class="ar-object" id="2" href="#">item_2</a>
-<a class="ar-object" id="3" href="#">item_3</a>
-<a class="ar-object" id="4" href="#">item_4</a>
-</div>
-<div id="menuButton" onclick="openNav()">&#9776;</div>
-</div>
-
-<script type="importmap">
-{
-"imports":{
-"three":"./build/three.module.js"
-}
-}
-</script>
-
-<script type="module">
 import * as THREE from 'three';
-import {ARButton} from './jsm/webxr/ARButton.js';
-import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js';
+import {ARButton} from 'three/addons/webxr/ARButton.js';
+import {OrbitControls} from 'three/addons/webxr/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/webxr/GLTFLoader.js';
+import {HDRLoader} from 'three/addons/webxr/HDRLoader.js';
 
 let scene,camera,renderer,reticle,controller;
+let controls;
 let hitTestSource=null;
 let hitTestSourceRequested=false;
 let current_object=null;
@@ -71,17 +43,13 @@ renderer.xr.enabled=true;
 
 document.body.appendChild(renderer.domElement);
 
+controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0,0);
+controls.update();
+
 controller=renderer.xr.getController(0);
 controller.addEventListener('select',onSelect);
 scene.add(controller);
-
-renderer.domElement.addEventListener('click',function(){
-if(renderer.xr.isPresenting)return;
-if(!current_object)return;
-
-current_object.position.set(0,0,-2);
-current_object.visible=true;
-});
 
 const options={
 requiredFeatures:['hit-test'],
@@ -136,13 +104,24 @@ current_object=null;
 const loader=new GLTFLoader();
 
 loader.load(
-'3d/'+model+'.glb',
+'model/'+model+'.glb',
 function(gltf){
 if(loading_model!==model)return;
 
 current_object=gltf.scene;
 current_object.visible=false;
 scene.add(current_object);
+
+const box=new THREE.Box3().setFromObject(current_object);
+const center=box.getCenter(new THREE.Vector3());
+
+current_object.position.sub(center);
+
+controls.target.set(0,0,0);
+controls.update();
+
+current_object.position.set(0,0,-2);
+current_object.visible=true;
 },
 undefined,
 function(error){
@@ -202,6 +181,7 @@ reticle.visible=false;
 
 if(current_object){
 current_object.visible=false;
+current_object.position.set(0,0,-2);
 }
 },{once:true});
 }
@@ -230,17 +210,3 @@ camera.aspect=window.innerWidth/window.innerHeight;
 camera.updateProjectionMatrix();
 renderer.setSize(window.innerWidth,window.innerHeight);
 }
-</script>
-
-<script>
-function openNav(){
-document.getElementById("mySidenav").style.width="250px";
-}
-
-function closeNav(){
-document.getElementById("mySidenav").style.width="0";
-}
-</script>
-
-</body>
-</html>
