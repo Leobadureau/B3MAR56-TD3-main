@@ -15,6 +15,7 @@ let loading_model=null;
 init();
 
 function init(){
+
 scene=new THREE.Scene();
 
 camera=new THREE.PerspectiveCamera(
@@ -29,6 +30,7 @@ const light=new THREE.HemisphereLight(
 0xbbbbff,
 3
 );
+
 light.position.set(0.5,1,0.25);
 scene.add(light);
 
@@ -93,6 +95,7 @@ loadModel("1");
 }
 
 function loadModel(model){
+
 current_url=model;
 loading_model=model;
 
@@ -106,31 +109,38 @@ const loader=new GLTFLoader();
 loader.load(
 'model/'+model+'.glb',
 function(gltf){
+
 if(loading_model!==model)return;
 
 current_object=gltf.scene;
-current_object.visible=false;
+current_object.visible=true;
+
 scene.add(current_object);
 
 const box=new THREE.Box3().setFromObject(current_object);
 const center=box.getCenter(new THREE.Vector3());
 
 current_object.position.sub(center);
+current_object.position.set(0,0,-2);
 
 controls.target.set(0,0,0);
 controls.update();
 
-current_object.position.set(0,0,-2);
-current_object.visible=true;
 },
 undefined,
 function(error){
-console.error('Erreur lors du chargement de '+model+'.glb',error);
+
+console.error(
+'Erreur lors du chargement de '+model+'.glb',
+error
+);
+
 }
 );
 }
 
 $(".ar-object").click(function(event){
+
 event.preventDefault();
 
 const selected_model=$(this).attr("id");
@@ -142,71 +152,118 @@ loadModel(selected_model);
 }
 
 closeNav();
+
 });
 
 function onSelect(){
+
 if(!current_object)return;
+
 if(!reticle.visible)return;
 
-current_object.position.setFromMatrixPosition(reticle.matrix);
+current_object.position.setFromMatrixPosition(
+reticle.matrix
+);
+
 current_object.visible=true;
+
 }
 
 function animate(timestamp,frame){
+
 if(!frame){
+
 renderer.render(scene,camera);
+
 return;
+
 }
 
 const referenceSpace=renderer.xr.getReferenceSpace();
 const session=renderer.xr.getSession();
 
 if(!hitTestSourceRequested){
+
 hitTestSourceRequested=true;
 
 session.requestReferenceSpace('viewer')
 .then(function(viewerSpace){
+
 return session.requestHitTestSource({
 space:viewerSpace
 });
+
 })
 .then(function(source){
+
 hitTestSource=source;
+
 });
 
 session.addEventListener('end',function(){
+
 hitTestSourceRequested=false;
 hitTestSource=null;
 reticle.visible=false;
 
 if(current_object){
+
 current_object.visible=false;
 current_object.position.set(0,0,-2);
+
 }
+
 },{once:true});
+
 }
 
 if(hitTestSource){
-const hitTestResults=frame.getHitTestResults(hitTestSource);
+
+const hitTestResults=frame.getHitTestResults(
+hitTestSource
+);
 
 if(hitTestResults.length>0){
+
 const hit=hitTestResults[0];
+
 const pose=hit.getPose(referenceSpace);
 
 if(pose){
+
 reticle.visible=true;
-reticle.matrix.fromArray(pose.transform.matrix);
+reticle.matrix.fromArray(
+pose.transform.matrix
+);
+
 }
+
 }else{
+
 reticle.visible=false;
+
 }
+
 }
 
 renderer.render(scene,camera);
+
 }
 
 function onWindowResize(){
-camera.aspect=window.innerWidth/window.innerHeight;
+
+camera.aspect=
+window.innerWidth/window.innerHeight;
+
 camera.updateProjectionMatrix();
-renderer.setSize(window.innerWidth,window.innerHeight);
+
+if(!renderer.xr.isPresenting){
+
+renderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+
+}
+
 }
