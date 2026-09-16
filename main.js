@@ -2,46 +2,48 @@ import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
 import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
-import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
+import { RGBELoader } from 'three/addons/webxr/RGBELoader.js';
 
+let scene;
+let camera;
+let renderer;
+let reticle;
+let controls;
+let controller;
+let selectionHelper = null;
+let pmremGenerator;
+let environmentRenderTarget;
+let actionButtons;
+let placeButton;
+let rotationSurface;
 
-var scene;
-var camera;
-var renderer;
-var reticle;
-var controller;
-var controls;
+let touchDown = false;
+let touchX = 0;
+let touchY = 0;
+let deltaX = 0;
+let deltaY = 0;
+let lastTouchAngle = null;
 
+let hitTestSource = null;
+let hitTestSourceRequested = false;
 
-var hitTestSource = null;
-var hitTestSourceRequested = false;
+let current_object = null;
+let loading_model = null;
 
+// Modèle actuellement sélectionné dans le menu
+let selected_model = '1';
 
-var current_object = null;
-var loading_model = null;
-var selected_model = '1';
+// Tous les modèles déjà placés
+let placed_objects = [];
 
-
-var placed_objects = [];
-
-
-var clock = new THREE.Clock();
-
-
-var touchDown = false;
-var touchX = 0;
-var touchY = 0;
-var deltaX = 0;
-var deltaY = 0;
-
+const raycaster = new THREE.Raycaster();
+const controllerRotation = new THREE.Matrix4();
 
 init();
 
-
-function init(){
+function init() {
 
     scene = new THREE.Scene();
-
 
     camera = new THREE.PerspectiveCamera(
         70,
@@ -50,13 +52,11 @@ function init(){
         20
     );
 
-
-    var light = new THREE.HemisphereLight(
+    const light = new THREE.HemisphereLight(
         0xffffff,
         0xbbbbff,
         3
     );
-
 
     light.position.set(
         0.5,
@@ -64,178 +64,226 @@ function init(){
         0.25
     );
 
-
     scene.add(light);
 
-
     renderer = new THREE.WebGLRenderer({
-
         antialias: true,
         alpha: true
-
     });
-
 
     renderer.setPixelRatio(
         window.devicePixelRatio
     );
-
 
     renderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
 
-
     renderer.xr.enabled = true;
-
 
     document.body.appendChild(
         renderer.domElement
     );
 
+    pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+
+    new RGBELoader()
+        .setDataType(THREE.HalfFloatType)
+        .load(
+            'textures/environment.hdr',
+            function (texture) {
+                environmentRenderTarget =
+                    pmremGenerator.fromEquirectangular(texture);
+
+                scene.environment =
+                    environmentRenderTarget.texture;
+
+                texture.dispose();
+                pmremGenerator.dispose();
+                pmremGenerator = null;
+            },
+            undefined,
+            function (error) {
+                pmremGenerator.dispose();
+                pmremGenerator = null;
+
+                console.error(
+                    'Erreur lors du chargement de la texture HDR',
+                    error
+                );
+            }
+        );
 
     controls = new OrbitControls(
         camera,
         renderer.domElement
     );
 
-
     controls.target.set(
         0,
         0,
-        0
+        -0.2
     );
 
+    controls.minDistance = 2;
+    controls.maxDistance = 10;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
 
     controls.update();
 
-
-    renderer.domElement.addEventListener(
+    document.addEventListener(
         'touchstart',
-        function(e){
+        function (event) {
 
-            if(!renderer.xr.isPresenting){
+            if (isInterfaceElement(event.target)) {
+                touchDown = false;
                 return;
             }
 
+            event.preventDefault();
 
-            if(e.touches.length !== 1){
+            if (event.touches.length === 0) {
                 return;
             }
-
-
-            e.preventDefault();
-
 
             touchDown = true;
+            touchX = event.touches[0].pageX;
+            touchY = event.touches[0].pageY;
 
-
-            touchX =
-                e.touches[0].pageX;
-
-
-            touchY =
-                e.touches[0].pageY;
-
+            if (event.touches.length >= 2) {
+                lastTouchAngle = getTouchAngle(event.touches);
+            }
         },
-        false
+        { passive: false, capture: true }
     );
 
+    document.addEventListener(
+        'touchend',
+        function (event) {
 
-    renderer.domElement.addEventListener(
+            if (!touchDown) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (event.touches.length === 0) {
+                touchDown = false;
+                lastTouchAngle = null;
+                return;
+            }
+
+            touchX = event.touches[0].pageX;
+            touchY = event.touches[0].pageY;
+
+            lastTouchAngle =
+                event.touches.length >= 2
+                    ? getTouchAngle(event.touches)
+                    : null;
+        },
+        { passive: false, capture: true }
+    );
+
+    document.addEventListener(
+        'touchcancel',
+        function (event) {
+
+            if (!touchDown) {
+                return;
+            }
+
+            event.preventDefault();
+            touchDown = false;
+            lastTouchAngle = null;
+        },
+        { passive: false, capture: true }
+    );
+
+    document.addEventListener(
         'touchmove',
-        function(e){
+        function (event) {
 
-            if(!renderer.xr.isPresenting){
+            if (
+                !touchDown ||
+                event.touches.length === 0
+            ) {
                 return;
             }
 
+            event.preventDefault();
 
-            if(!touchDown){
+            if (event.touches.length >= 2) {
+
+                const touchAngle =
+                    getTouchAngle(event.touches);
+
+                if (lastTouchAngle !== null) {
+                    rotateObjectOnZ(
+                        normalizeAngle(
+                            touchAngle - lastTouchAngle
+                        )
+                    );
+                }
+
+                lastTouchAngle = touchAngle;
                 return;
             }
 
-
-            if(e.touches.length !== 1){
-                return;
-            }
-
-
-            e.preventDefault();
-
+            lastTouchAngle = null;
 
             deltaX =
-                e.touches[0].pageX - touchX;
-
+                event.touches[0].pageX - touchX;
 
             deltaY =
-                e.touches[0].pageY - touchY;
+                event.touches[0].pageY - touchY;
 
-
-            touchX =
-                e.touches[0].pageX;
-
-
-            touchY =
-                e.touches[0].pageY;
-
+            touchX = event.touches[0].pageX;
+            touchY = event.touches[0].pageY;
 
             rotateObject();
-
         },
-        false
+        { passive: false, capture: true }
     );
 
+    const domOverlay = document.getElementById('content');
 
-    renderer.domElement.addEventListener(
-        'touchend',
-        function(e){
+    actionButtons = document.getElementById('actionButtons');
+    placeButton = document.getElementById('placeButton');
+    rotationSurface = document.getElementById('rotationSurface');
 
-            if(e.cancelable){
-                e.preventDefault();
+    // Les interactions avec le menu et les boutons ne doivent pas
+    // déclencher un événement de sélection dans la scène WebXR.
+    domOverlay.addEventListener(
+        'beforexrselect',
+        function (event) {
+
+            if (isInterfaceElement(event.target)) {
+                event.preventDefault();
             }
-
-
-            touchDown = false;
-
-        },
-        false
+        }
     );
 
-
-    renderer.domElement.addEventListener(
-        'touchcancel',
-        function(){
-
-            touchDown = false;
-
-        },
-        false
+    controller = renderer.xr.getController(0);
+    controller.addEventListener(
+        'select',
+        onObjectSelect
     );
+    scene.add(controller);
 
-
-    var options = {
+    const options = {
 
         requiredFeatures: [
-            'hit-test'
-        ],
-
-        optionalFeatures: [
+            'hit-test',
             'dom-overlay'
         ],
 
         domOverlay: {
-
-            root:
-                document.getElementById(
-                    'content'
-                )
-
+            root: domOverlay
         }
-
     };
-
 
     document.body.appendChild(
         ARButton.createButton(
@@ -244,148 +292,106 @@ function init(){
         )
     );
 
-
-    var geometry =
+    const geometry =
         new THREE.RingGeometry(
             0.15,
             0.20,
             32
         );
 
-
     geometry.rotateX(
         -Math.PI / 2
     );
 
-
-    var material =
+    const material =
         new THREE.MeshBasicMaterial({
-
             color: 0xffffff
-
         });
-
 
     reticle = new THREE.Mesh(
         geometry,
         material
     );
 
-
     reticle.matrixAutoUpdate = false;
-
-
     reticle.visible = false;
-
 
     scene.add(reticle);
 
 
+    // -------------------------------------------------
+    // DEBUT DE SESSION AR
+    // -------------------------------------------------
+
     renderer.xr.addEventListener(
         'sessionstart',
-        function(){
+        function () {
 
             hitTestSource = null;
-
             hitTestSourceRequested = false;
 
             reticle.visible = false;
+            actionButtons.style.display = 'flex';
+            placeButton.style.display = 'none';
 
+            const session = renderer.xr.getSession();
 
-            clock.start();
+            if (!session.domOverlayState) {
+                console.error(
+                    'Le DOM Overlay n’est pas disponible pour cette session AR.'
+                );
+            }
 
+            // Seul le modèle qui n'a pas encore été placé est caché.
+            if (
+                current_object &&
+                !placed_objects.includes(current_object)
+            ) {
+                current_object.visible = false;
+            }
 
-            document.getElementById(
-                'place-button'
-            ).style.display = 'none';
-
-
-            document.getElementById(
-                'delete-button'
-            ).style.display = 'block';
-
-
-            document.getElementById(
-                'clear-button'
-            ).style.display = 'block';
-
-
-            controls.enabled = false;
-
+            if (controls) {
+                controls.enabled = false;
+            }
         }
     );
 
+
+    // -------------------------------------------------
+    // FIN DE SESSION AR
+    // -------------------------------------------------
 
     renderer.xr.addEventListener(
         'sessionend',
-        function(){
+        function () {
 
             hitTestSource = null;
-
             hitTestSourceRequested = false;
 
             reticle.visible = false;
+            placeButton.style.display = 'none';
+            actionButtons.style.display = 'none';
 
+            if (controls) {
+                controls.enabled = true;
+            }
 
-            document.getElementById(
-                'place-button'
-            ).style.display = 'none';
+            clearSelectionHelper();
 
+            // Le modèle non placé revient à sa position initiale.
+            if (
+                current_object &&
+                !placed_objects.includes(current_object)
+            ) {
 
-            document.getElementById(
-                'delete-button'
-            ).style.display = 'none';
+                current_object.position.set(
+                    0,
+                    0,
+                    -2
+                );
 
-
-            document.getElementById(
-                'clear-button'
-            ).style.display = 'none';
-
-
-            controls.enabled = true;
-
-        }
-    );
-
-
-    document.getElementById(
-        'place-button'
-    ).addEventListener(
-        'click',
-        function(event){
-
-            event.stopPropagation();
-
-            arPlace();
-
-        }
-    );
-
-
-    document.getElementById(
-        'delete-button'
-    ).addEventListener(
-        'click',
-        function(event){
-
-            event.stopPropagation();
-
-            deleteLastObject();
-
-        }
-    );
-
-
-    document.getElementById(
-        'clear-button'
-    ).addEventListener(
-        'click',
-        function(event){
-
-            event.stopPropagation();
-
-            clearObjects();
-
+                current_object.visible = true;
+            }
         }
     );
 
@@ -401,94 +407,105 @@ function init(){
     );
 
 
+    // Modèle chargé au démarrage
     loadModel('1');
-
 }
 
 
-function loadModel(model){
+// -------------------------------------------------
+// CHARGEMENT D'UN MODELE
+// -------------------------------------------------
+
+function loadModel(model) {
 
     loading_model = model;
 
     selected_model = model;
 
-
-    var loader =
-        new GLTFLoader();
-
+    const loader = new GLTFLoader();
 
     loader.load(
 
         'model/' + model + '.glb',
 
+        function (gltf) {
 
-        function(gltf){
-
-            if(loading_model !== model){
+            // Si un autre modèle a été sélectionné
+            // pendant le chargement, on ignore celui-ci
+            if (loading_model !== model) {
                 return;
             }
 
 
-            if(current_object){
+            // Supprime uniquement le modèle qui n'a pas encore été placé.
+            // Un modèle déjà placé reste dans la scène.
+            if (
+                current_object &&
+                !placed_objects.includes(current_object)
+            ) {
 
                 scene.remove(
                     current_object
                 );
 
                 current_object = null;
-
             }
 
+            clearSelectionHelper();
 
-            current_object =
+
+            // Centre le modèle dans un groupe parent.
+            // Le groupe peut être déplacé sans perdre le centrage.
+            const model_scene =
                 gltf.scene;
 
+            const box =
+                new THREE.Box3()
+                    .setFromObject(
+                        model_scene
+                    );
+
+            const center =
+                box.getCenter(
+                    new THREE.Vector3()
+                );
+
+            const size =
+                box.getSize(
+                    new THREE.Vector3()
+                );
+
+            const max_size = Math.max(
+                size.x,
+                size.y,
+                size.z
+            );
+
+            model_scene.position.sub(
+                center
+            );
+
+            current_object =
+                new THREE.Group();
+
+            current_object.userData.modelId = model;
+
+            current_object.add(
+                model_scene
+            );
+
+            // Tous les modèles ont une dimension maximale de 50 cm.
+            if (max_size > 0) {
+                current_object.scale.setScalar(
+                    0.5 / max_size
+                );
+            }
 
             scene.add(
                 current_object
             );
 
-
-            if(gltf.animations.length > 0){
-
-                var mixer =
-                    new THREE.AnimationMixer(
-                        current_object
-                    );
-
-
-                var action =
-                    mixer.clipAction(
-                        gltf.animations[0]
-                    );
-
-
-                action.play();
-
-
-                current_object.userData.mixer =
-                    mixer;
-
-            }
-
-
-            var box =
-                new THREE.Box3().setFromObject(
-                    current_object
-                );
-
-
-            var center =
-                box.getCenter(
-                    new THREE.Vector3()
-                );
-
-
-            current_object.position.sub(
-                center
-            );
-
-
+            // Position de départ
             current_object.position.set(
                 0,
                 0,
@@ -499,251 +516,302 @@ function loadModel(model){
             current_object.visible = true;
 
 
-            if(renderer.xr.isPresenting){
+            // Pendant l'AR, il sera affiché
+            // uniquement après détection d'une surface
+            if (renderer.xr.isPresenting) {
 
                 current_object.visible = false;
-
             }
-
         },
-
 
         undefined,
 
-
-        function(error){
+        function (error) {
 
             console.error(
-                'Erreur lors du chargement :',
+                'Erreur lors du chargement de ' +
+                model +
+                '.glb',
                 error
             );
-
         }
-
     );
-
 }
 
 
-$('.ar-object').click(
-    function(event){
+// -------------------------------------------------
+// MENU : CHANGEMENT DE MODELE
+// -------------------------------------------------
 
-        event.preventDefault();
+$('.ar-object').click(function (event) {
 
-        event.stopPropagation();
+    event.preventDefault();
 
-
-        var model =
-            $(this).attr('id');
-
-
-        loadModel(model);
+    const model =
+        $(this).attr('id');
 
 
-        closeNav();
+    // On mémorise le modèle sélectionné
+    selected_model = model;
 
+
+    // On prépare un nouveau modèle
+    loadModel(model);
+
+
+    // Ferme le menu
+    closeNav();
+});
+
+
+// -------------------------------------------------
+// BOUTONS D'ACTION
+// -------------------------------------------------
+
+document.getElementById('placeButton').addEventListener(
+    'click',
+    onSelect
+);
+
+document.getElementById('clearButton').addEventListener(
+    'click',
+    function () {
+        placed_objects.forEach(function (object) {
+            scene.remove(object);
+        });
+
+        if (
+            current_object &&
+            !placed_objects.includes(current_object)
+        ) {
+            scene.remove(current_object);
+        }
+
+        placed_objects = [];
+        current_object = null;
+        loading_model = null;
+        clearSelectionHelper();
     }
 );
 
 
-function rotateObject(){
+// -------------------------------------------------
+// PLACEMENT D'UN MODELE
+// -------------------------------------------------
 
-    if(
-        placed_objects.length === 0
-    ){
+function onSelect() {
 
-        return;
-
-    }
-
-
-    var object =
-        placed_objects[
-            placed_objects.length - 1
-        ];
-
-
-    object.rotation.y +=
-        deltaX / 100;
-
-}
-
-
-function arPlace(){
-
-    if(!renderer.xr.isPresenting){
+    // Aucun modèle à placer
+    if (!current_object) {
         return;
     }
 
 
-    if(!current_object){
+    // Aucune surface détectée
+    if (!reticle.visible) {
         return;
     }
 
 
-    if(!reticle.visible){
-        return;
-    }
+    const objectWasAlreadyPlaced =
+        placed_objects.includes(current_object);
 
-
+    // Place ou déplace le modèle à l'endroit du réticule.
     current_object.position.setFromMatrixPosition(
         reticle.matrix
     );
 
-
     current_object.visible = true;
 
 
-    placed_objects.push(
-        current_object
-    );
+    if (!objectWasAlreadyPlaced) {
+        placed_objects.push(current_object);
 
-
-    current_object = null;
-
-
-    document.getElementById(
-        'place-button'
-    ).style.display = 'none';
-
-
-    loadModel(
-        selected_model
-    );
-
-}
-
-
-function deleteLastObject(){
-
-    if(
-        placed_objects.length === 0
-    ){
-
-        return;
-
-    }
-
-
-    var object =
-        placed_objects.pop();
-
-
-    if(object.userData.mixer){
-
-        object.userData.mixer.stopAllAction();
-
-    }
-
-
-    scene.remove(
-        object
-    );
-
-}
-
-
-function clearObjects(){
-
-    for(
-        var i = 0;
-        i < placed_objects.length;
-        i++
-    ){
-
-        var object =
-            placed_objects[i];
-
-
-        if(object.userData.mixer){
-
-            object.userData.mixer.stopAllAction();
-
-        }
-
-
-        scene.remove(
-            object
-        );
-
-    }
-
-
-    placed_objects = [];
-
-
-    if(current_object){
-
-        if(current_object.userData.mixer){
-
-            current_object.userData.mixer.stopAllAction();
-
-        }
-
-
-        scene.remove(
-            current_object
-        );
-
-
+        // Prépare automatiquement une nouvelle copie du même modèle.
         current_object = null;
+        clearSelectionHelper();
+        placeButton.style.display = 'none';
+        loadModel(selected_model);
+    } else if (selectionHelper) {
 
+        // Le même objet reste sélectionné après son déplacement.
+        selectionHelper.update();
     }
-
-
-    document.getElementById(
-        'place-button'
-    ).style.display = 'none';
-
-
-    loadModel(
-        selected_model
-    );
-
 }
 
+
+// -------------------------------------------------
+// SELECTION D'UN OBJET DEJA PLACE
+// -------------------------------------------------
+
+function onObjectSelect() {
+
+    controllerRotation
+        .identity()
+        .extractRotation(controller.matrixWorld);
+
+    raycaster.ray.origin.setFromMatrixPosition(
+        controller.matrixWorld
+    );
+
+    raycaster.ray.direction
+        .set(0, 0, -1)
+        .applyMatrix4(controllerRotation);
+
+    const intersections = raycaster.intersectObjects(
+        placed_objects,
+        true
+    );
+
+    if (intersections.length === 0) {
+        return;
+    }
+
+    let selectedObject = intersections[0].object;
+
+    while (
+        selectedObject.parent &&
+        !placed_objects.includes(selectedObject)
+    ) {
+        selectedObject = selectedObject.parent;
+    }
+
+    if (!placed_objects.includes(selectedObject)) {
+        return;
+    }
+
+    // Supprime l'éventuelle copie encore en attente de placement.
+    if (
+        current_object &&
+        !placed_objects.includes(current_object)
+    ) {
+        scene.remove(current_object);
+    }
+
+    loading_model = null;
+    current_object = selectedObject;
+    selected_model =
+        current_object.userData.modelId || selected_model;
+
+    showSelectionHelper(current_object);
+}
+
+
+function showSelectionHelper(object) {
+
+    clearSelectionHelper();
+
+    selectionHelper = new THREE.BoxHelper(
+        object,
+        0xffff00
+    );
+
+    scene.add(selectionHelper);
+    rotationSurface.style.display = 'block';
+}
+
+
+function clearSelectionHelper() {
+
+    if (rotationSurface) {
+        rotationSurface.style.display = 'none';
+    }
+
+    if (!selectionHelper) {
+        return;
+    }
+
+    scene.remove(selectionHelper);
+    selectionHelper.geometry.dispose();
+    selectionHelper.material.dispose();
+    selectionHelper = null;
+}
+
+
+// -------------------------------------------------
+// ROTATION TACTILE DU MODELE COURANT
+// -------------------------------------------------
+
+function rotateObject() {
+
+    if (
+        current_object &&
+        selectionHelper
+    ) {
+        current_object.rotation.y += deltaX / 100;
+        current_object.rotation.x += deltaY / 100;
+
+        if (selectionHelper) {
+            selectionHelper.update();
+        }
+    }
+}
+
+
+function rotateObjectOnZ(angle) {
+
+    if (
+        current_object &&
+        selectionHelper
+    ) {
+        current_object.rotation.z += angle;
+
+        if (selectionHelper) {
+            selectionHelper.update();
+        }
+    }
+}
+
+
+function isInterfaceElement(target) {
+
+    return (
+        target instanceof Element &&
+        target.closest(
+            '#actionButtons, #menuButton, #mySidenav, #ARButton'
+        ) !== null
+    );
+}
+
+
+function getTouchAngle(touches) {
+
+    return Math.atan2(
+        touches[1].pageY - touches[0].pageY,
+        touches[1].pageX - touches[0].pageX
+    );
+}
+
+
+function normalizeAngle(angle) {
+
+    if (angle > Math.PI) {
+        return angle - Math.PI * 2;
+    }
+
+    if (angle < -Math.PI) {
+        return angle + Math.PI * 2;
+    }
+
+    return angle;
+}
+
+
+// -------------------------------------------------
+// ANIMATION
+// -------------------------------------------------
 
 function animate(
     timestamp,
     frame
-){
+) {
 
-    var delta =
-        clock.getDelta();
+    // Pas de session AR
+    if (!frame) {
 
-
-    for(
-        var i = 0;
-        i < placed_objects.length;
-        i++
-    ){
-
-        if(
-            placed_objects[i].userData.mixer
-        ){
-
-            placed_objects[i].userData.mixer.update(
-                delta
-            );
-
+        if (controls && controls.enabled) {
+            controls.update();
         }
-
-    }
-
-
-    if(
-        current_object &&
-        current_object.userData.mixer
-    ){
-
-        current_object.userData.mixer.update(
-            delta
-        );
-
-    }
-
-
-    if(!frame){
 
         renderer.render(
             scene,
@@ -751,150 +819,140 @@ function animate(
         );
 
         return;
-
     }
 
 
-    var referenceSpace =
+    const referenceSpace =
         renderer.xr.getReferenceSpace();
 
-
-    var session =
+    const session =
         renderer.xr.getSession();
 
 
-    if(!hitTestSourceRequested){
+    // -------------------------------------------------
+    // DEMANDE DU HIT TEST
+    // -------------------------------------------------
+
+    if (!hitTestSourceRequested) {
 
         hitTestSourceRequested = true;
 
+        session
+            .requestReferenceSpace(
+                'viewer'
+            )
 
-        session.requestReferenceSpace(
-            'viewer'
-        )
+            .then(
+                function (viewerSpace) {
 
-        .then(
-            function(viewerSpace){
+                    return session
+                        .requestHitTestSource({
+                            space: viewerSpace
+                        });
+                }
+            )
 
-                return session.requestHitTestSource({
+            .then(
+                function (source) {
 
-                    space: viewerSpace
+                    hitTestSource =
+                        source;
+                }
+            )
 
-                });
+            .catch(
+                function (error) {
 
-            }
-        )
+                    console.error(
+                        'Erreur Hit Test :',
+                        error
+                    );
 
-        .then(
-            function(source){
-
-                hitTestSource =
-                    source;
-
-            }
-        )
-
-        .catch(
-            function(error){
-
-                console.error(
-                    'Erreur Hit Test:',
-                    error
-                );
-
-
-                hitTestSourceRequested =
-                    false;
-
-            }
-        );
-
+                    hitTestSourceRequested =
+                        false;
+                }
+            );
     }
 
 
-    if(hitTestSource){
+    // -------------------------------------------------
+    // RECUPERATION DU HIT TEST
+    // -------------------------------------------------
 
-        var hitTestResults =
+    if (hitTestSource) {
+
+        const hitTestResults =
             frame.getHitTestResults(
                 hitTestSource
             );
 
 
-        if(
+        if (
             hitTestResults.length > 0
-        ){
+        ) {
 
-            var hit =
+            const hit =
                 hitTestResults[0];
 
 
-            var pose =
+            const pose =
                 hit.getPose(
                     referenceSpace
                 );
 
 
-            if(pose){
+            if (pose) {
 
                 reticle.visible = true;
-
+                placeButton.style.display =
+                    current_object ? 'block' : 'none';
 
                 reticle.matrix.fromArray(
                     pose.transform.matrix
                 );
+            } else {
 
-
-                if(current_object){
-
-                    document.getElementById(
-                        'place-button'
-                    ).style.display =
-                        'block';
-
-                }
-
+                reticle.visible = false;
+                placeButton.style.display = 'none';
             }
 
-        }
-        else{
+        } else {
 
             reticle.visible = false;
-
-
-            document.getElementById(
-                'place-button'
-            ).style.display =
-                'none';
-
+            placeButton.style.display = 'none';
         }
-
     }
 
+
+    // -------------------------------------------------
+    // AFFICHAGE
+    // -------------------------------------------------
 
     renderer.render(
         scene,
         camera
     );
-
 }
 
 
-function onWindowResize(){
+// -------------------------------------------------
+// RESIZE
+// -------------------------------------------------
+
+function onWindowResize() {
 
     camera.aspect =
         window.innerWidth /
         window.innerHeight;
 
-
     camera.updateProjectionMatrix();
 
 
-    if(!renderer.xr.isPresenting){
+    if (!renderer.xr.isPresenting) {
 
         renderer.setSize(
             window.innerWidth,
             window.innerHeight
         );
-
     }
-
 }
