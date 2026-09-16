@@ -158,7 +158,6 @@ canvas {
     position: fixed;
 
     bottom: 25px;
-
     left: 50%;
 
     transform: translateX(-50%);
@@ -166,14 +165,13 @@ canvas {
     z-index: 300;
 
     width: 110px;
-
     height: 45px;
 
     display: none;
 
     border: none;
 
-    border-radius: 8px;
+    border-radius: 10px;
 
     background-color: rgba(0, 0, 0, 0.8);
 
@@ -182,6 +180,43 @@ canvas {
     font-size: 16px;
 
     font-weight: bold;
+
+    cursor: pointer;
+
+    pointer-events: auto;
+
+    touch-action: manipulation;
+
+}
+
+
+#delete-button {
+
+    position: fixed;
+
+    bottom: 25px;
+    left: 20px;
+
+    z-index: 300;
+
+    width: 100px;
+    height: 45px;
+
+    display: none;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background-color: rgba(0, 0, 0, 0.8);
+
+    color: white;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
 
     pointer-events: auto;
 
@@ -195,28 +230,28 @@ canvas {
     position: fixed;
 
     bottom: 25px;
-
     right: 20px;
 
     z-index: 300;
 
     width: 90px;
-
     height: 45px;
 
     display: none;
 
     border: none;
 
-    border-radius: 8px;
+    border-radius: 10px;
 
     background-color: rgba(0, 0, 0, 0.8);
 
     color: white;
 
-    font-size: 15px;
+    font-size: 16px;
 
     font-weight: bold;
+
+    cursor: pointer;
 
     pointer-events: auto;
 

@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
 import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
 
+
 var scene;
 var camera;
 var renderer;
@@ -11,22 +12,28 @@ var reticle;
 var controller;
 var controls;
 
+
 var hitTestSource = null;
 var hitTestSourceRequested = false;
+
 
 var current_object = null;
 var loading_model = null;
 var selected_model = '1';
 
+
 var placed_objects = [];
 
+
 var clock = new THREE.Clock();
+
 
 var touchDown = false;
 var touchX = 0;
 var touchY = 0;
 var deltaX = 0;
 var deltaY = 0;
+
 
 init();
 
@@ -35,6 +42,7 @@ function init(){
 
     scene = new THREE.Scene();
 
+
     camera = new THREE.PerspectiveCamera(
         70,
         window.innerWidth / window.innerHeight,
@@ -42,11 +50,13 @@ function init(){
         20
     );
 
+
     var light = new THREE.HemisphereLight(
         0xffffff,
         0xbbbbff,
         3
     );
+
 
     light.position.set(
         0.5,
@@ -54,24 +64,35 @@ function init(){
         0.25
     );
 
+
     scene.add(light);
 
 
     renderer = new THREE.WebGLRenderer({
+
         antialias: true,
         alpha: true
+
     });
 
-    renderer.setPixelRatio(window.devicePixelRatio);
+
+    renderer.setPixelRatio(
+        window.devicePixelRatio
+    );
+
 
     renderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
 
+
     renderer.xr.enabled = true;
 
-    document.body.appendChild(renderer.domElement);
+
+    document.body.appendChild(
+        renderer.domElement
+    );
 
 
     controls = new OrbitControls(
@@ -79,7 +100,13 @@ function init(){
         renderer.domElement
     );
 
-    controls.target.set(0, 0, 0);
+
+    controls.target.set(
+        0,
+        0,
+        0
+    );
+
 
     controls.update();
 
@@ -88,19 +115,31 @@ function init(){
         'touchstart',
         function(e){
 
+            if(!renderer.xr.isPresenting){
+                return;
+            }
+
+
             if(e.touches.length !== 1){
                 return;
             }
 
+
+            e.preventDefault();
+
+
             touchDown = true;
 
-            touchX = e.touches[0].pageX;
-            touchY = e.touches[0].pageY;
+
+            touchX =
+                e.touches[0].pageX;
+
+
+            touchY =
+                e.touches[0].pageY;
 
         },
-        {
-            passive: false
-        }
+        false
     );
 
 
@@ -108,47 +147,60 @@ function init(){
         'touchmove',
         function(e){
 
+            if(!renderer.xr.isPresenting){
+                return;
+            }
+
+
             if(!touchDown){
                 return;
             }
+
 
             if(e.touches.length !== 1){
                 return;
             }
 
+
             e.preventDefault();
+
 
             deltaX =
                 e.touches[0].pageX - touchX;
 
+
             deltaY =
                 e.touches[0].pageY - touchY;
+
 
             touchX =
                 e.touches[0].pageX;
 
+
             touchY =
                 e.touches[0].pageY;
+
 
             rotateObject();
 
         },
-        {
-            passive: false
-        }
+        false
     );
 
 
     renderer.domElement.addEventListener(
         'touchend',
-        function(){
+        function(e){
+
+            if(e.cancelable){
+                e.preventDefault();
+            }
+
 
             touchDown = false;
 
         },
-        {
-            passive: false
-        }
+        false
     );
 
 
@@ -159,9 +211,7 @@ function init(){
             touchDown = false;
 
         },
-        {
-            passive: false
-        }
+        false
     );
 
 
@@ -176,7 +226,12 @@ function init(){
         ],
 
         domOverlay: {
-            root: document.getElementById('content')
+
+            root:
+                document.getElementById(
+                    'content'
+                )
+
         }
 
     };
@@ -190,18 +245,25 @@ function init(){
     );
 
 
-    var geometry = new THREE.RingGeometry(
-        0.15,
-        0.20,
-        32
+    var geometry =
+        new THREE.RingGeometry(
+            0.15,
+            0.20,
+            32
+        );
+
+
+    geometry.rotateX(
+        -Math.PI / 2
     );
 
-    geometry.rotateX(-Math.PI / 2);
 
+    var material =
+        new THREE.MeshBasicMaterial({
 
-    var material = new THREE.MeshBasicMaterial({
-        color: 0xffffff
-    });
+            color: 0xffffff
+
+        });
 
 
     reticle = new THREE.Mesh(
@@ -209,9 +271,12 @@ function init(){
         material
     );
 
+
     reticle.matrixAutoUpdate = false;
 
+
     reticle.visible = false;
+
 
     scene.add(reticle);
 
@@ -221,19 +286,29 @@ function init(){
         function(){
 
             hitTestSource = null;
+
             hitTestSourceRequested = false;
 
             reticle.visible = false;
 
+
             clock.start();
+
 
             document.getElementById(
                 'place-button'
             ).style.display = 'none';
 
+
+            document.getElementById(
+                'delete-button'
+            ).style.display = 'block';
+
+
             document.getElementById(
                 'clear-button'
             ).style.display = 'block';
+
 
             controls.enabled = false;
 
@@ -246,17 +321,26 @@ function init(){
         function(){
 
             hitTestSource = null;
+
             hitTestSourceRequested = false;
 
             reticle.visible = false;
+
 
             document.getElementById(
                 'place-button'
             ).style.display = 'none';
 
+
+            document.getElementById(
+                'delete-button'
+            ).style.display = 'none';
+
+
             document.getElementById(
                 'clear-button'
             ).style.display = 'none';
+
 
             controls.enabled = true;
 
@@ -273,6 +357,20 @@ function init(){
             event.stopPropagation();
 
             arPlace();
+
+        }
+    );
+
+
+    document.getElementById(
+        'delete-button'
+    ).addEventListener(
+        'click',
+        function(event){
+
+            event.stopPropagation();
+
+            deleteLastObject();
 
         }
     );
@@ -298,7 +396,9 @@ function init(){
     );
 
 
-    renderer.setAnimationLoop(animate);
+    renderer.setAnimationLoop(
+        animate
+    );
 
 
     loadModel('1');
@@ -312,11 +412,15 @@ function loadModel(model){
 
     selected_model = model;
 
-    var loader = new GLTFLoader();
+
+    var loader =
+        new GLTFLoader();
 
 
     loader.load(
+
         'model/' + model + '.glb',
+
 
         function(gltf){
 
@@ -327,45 +431,62 @@ function loadModel(model){
 
             if(current_object){
 
-                scene.remove(current_object);
+                scene.remove(
+                    current_object
+                );
 
                 current_object = null;
 
             }
 
 
-            current_object = gltf.scene;
+            current_object =
+                gltf.scene;
 
-            scene.add(current_object);
+
+            scene.add(
+                current_object
+            );
 
 
             if(gltf.animations.length > 0){
 
-                var mixer = new THREE.AnimationMixer(
-                    current_object
-                );
+                var mixer =
+                    new THREE.AnimationMixer(
+                        current_object
+                    );
 
-                var action = mixer.clipAction(
-                    gltf.animations[0]
-                );
+
+                var action =
+                    mixer.clipAction(
+                        gltf.animations[0]
+                    );
+
 
                 action.play();
 
-                current_object.userData.mixer = mixer;
+
+                current_object.userData.mixer =
+                    mixer;
 
             }
 
 
-            var box = new THREE.Box3().setFromObject(
-                current_object
+            var box =
+                new THREE.Box3().setFromObject(
+                    current_object
+                );
+
+
+            var center =
+                box.getCenter(
+                    new THREE.Vector3()
+                );
+
+
+            current_object.position.sub(
+                center
             );
-
-            var center = box.getCenter(
-                new THREE.Vector3()
-            );
-
-
-            current_object.position.sub(center);
 
 
             current_object.position.set(
@@ -386,7 +507,9 @@ function loadModel(model){
 
         },
 
+
         undefined,
+
 
         function(error){
 
@@ -396,6 +519,7 @@ function loadModel(model){
             );
 
         }
+
     );
 
 }
@@ -408,9 +532,13 @@ $('.ar-object').click(
 
         event.stopPropagation();
 
-        var model = $(this).attr('id');
+
+        var model =
+            $(this).attr('id');
+
 
         loadModel(model);
+
 
         closeNav();
 
@@ -420,30 +548,23 @@ $('.ar-object').click(
 
 function rotateObject(){
 
-    var objectToRotate = null;
+    if(
+        placed_objects.length === 0
+    ){
 
-
-    if(placed_objects.length > 0){
-
-        objectToRotate =
-            placed_objects[
-                placed_objects.length - 1
-            ];
-
-    }
-    else if(current_object){
-
-        objectToRotate = current_object;
+        return;
 
     }
 
 
-    if(objectToRotate){
+    var object =
+        placed_objects[
+            placed_objects.length - 1
+        ];
 
-        objectToRotate.rotation.y +=
-            deltaX / 100;
 
-    }
+    object.rotation.y +=
+        deltaX / 100;
 
 }
 
@@ -454,9 +575,11 @@ function arPlace(){
         return;
     }
 
+
     if(!current_object){
         return;
     }
+
 
     if(!reticle.visible){
         return;
@@ -484,7 +607,38 @@ function arPlace(){
     ).style.display = 'none';
 
 
-    loadModel(selected_model);
+    loadModel(
+        selected_model
+    );
+
+}
+
+
+function deleteLastObject(){
+
+    if(
+        placed_objects.length === 0
+    ){
+
+        return;
+
+    }
+
+
+    var object =
+        placed_objects.pop();
+
+
+    if(object.userData.mixer){
+
+        object.userData.mixer.stopAllAction();
+
+    }
+
+
+    scene.remove(
+        object
+    );
 
 }
 
@@ -497,7 +651,8 @@ function clearObjects(){
         i++
     ){
 
-        var object = placed_objects[i];
+        var object =
+            placed_objects[i];
 
 
         if(object.userData.mixer){
@@ -507,7 +662,9 @@ function clearObjects(){
         }
 
 
-        scene.remove(object);
+        scene.remove(
+            object
+        );
 
     }
 
@@ -523,7 +680,11 @@ function clearObjects(){
 
         }
 
-        scene.remove(current_object);
+
+        scene.remove(
+            current_object
+        );
+
 
         current_object = null;
 
@@ -535,14 +696,20 @@ function clearObjects(){
     ).style.display = 'none';
 
 
-    loadModel(selected_model);
+    loadModel(
+        selected_model
+    );
 
 }
 
 
-function animate(timestamp, frame){
+function animate(
+    timestamp,
+    frame
+){
 
-    var delta = clock.getDelta();
+    var delta =
+        clock.getDelta();
 
 
     for(
@@ -551,7 +718,9 @@ function animate(timestamp, frame){
         i++
     ){
 
-        if(placed_objects[i].userData.mixer){
+        if(
+            placed_objects[i].userData.mixer
+        ){
 
             placed_objects[i].userData.mixer.update(
                 delta
@@ -589,6 +758,7 @@ function animate(timestamp, frame){
     var referenceSpace =
         renderer.xr.getReferenceSpace();
 
+
     var session =
         renderer.xr.getSession();
 
@@ -606,7 +776,9 @@ function animate(timestamp, frame){
             function(viewerSpace){
 
                 return session.requestHitTestSource({
+
                     space: viewerSpace
+
                 });
 
             }
@@ -615,7 +787,8 @@ function animate(timestamp, frame){
         .then(
             function(source){
 
-                hitTestSource = source;
+                hitTestSource =
+                    source;
 
             }
         )
@@ -628,7 +801,9 @@ function animate(timestamp, frame){
                     error
                 );
 
-                hitTestSourceRequested = false;
+
+                hitTestSourceRequested =
+                    false;
 
             }
         );
@@ -644,9 +819,12 @@ function animate(timestamp, frame){
             );
 
 
-        if(hitTestResults.length > 0){
+        if(
+            hitTestResults.length > 0
+        ){
 
-            var hit = hitTestResults[0];
+            var hit =
+                hitTestResults[0];
 
 
             var pose =
@@ -669,7 +847,8 @@ function animate(timestamp, frame){
 
                     document.getElementById(
                         'place-button'
-                    ).style.display = 'block';
+                    ).style.display =
+                        'block';
 
                 }
 
@@ -683,7 +862,8 @@ function animate(timestamp, frame){
 
             document.getElementById(
                 'place-button'
-            ).style.display = 'none';
+            ).style.display =
+                'none';
 
         }
 
@@ -703,6 +883,7 @@ function onWindowResize(){
     camera.aspect =
         window.innerWidth /
         window.innerHeight;
+
 
     camera.updateProjectionMatrix();
 
