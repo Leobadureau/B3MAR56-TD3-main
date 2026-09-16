@@ -116,11 +116,6 @@ function init(){
             hitTestSourceRequested=false;
             reticle.visible=false;
 
-            // Cache le modèle en attente de placement
-            if(current_object){
-                current_object.visible=false;
-            }
-
             if(controls){
                 controls.enabled=false;
             }
@@ -137,17 +132,6 @@ function init(){
 
             if(controls){
                 controls.enabled=true;
-            }
-
-            // Remet le modèle non placé à sa position initiale
-            if(current_object){
-                current_object.position.set(
-                    0,
-                    0,
-                    -2
-                );
-
-                current_object.visible=true;
             }
         }
     );
