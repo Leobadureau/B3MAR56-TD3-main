@@ -4,24 +4,18 @@ import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
 import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
 
-let scene;
-let camera;
-let renderer;
-let reticle;
-let controller;
-let controls;
+var scene, camera, renderer;
+var reticle, controller;
+var controls;
 
-let hitTestSource = null;
-let hitTestSourceRequested = false;
+var hitTestSource = null;
+var hitTestSourceRequested = false;
 
-let current_object = null;
-let loading_model = null;
+var current_object = null;
+var loading_model = null;
 
-// Modèle actuellement sélectionné dans le menu
-let selected_model = '1';
-
-// Tous les modèles déjà placés
-let placed_objects = [];
+var selected_model = '1';
+var placed_objects = [];
 
 init();
 
