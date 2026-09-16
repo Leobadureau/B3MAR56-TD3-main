@@ -1,23 +1,14 @@
 import * as THREE from 'three';
-
-import { ARButton }
-from 'three/addons/webxr/ARButton.js';
-
-import { GLTFLoader }
-from 'three/addons/webxr/GLTFLoader.js';
-
-import { OrbitControls }
-from 'three/addons/webxr/OrbitControls.js';
-
-import { HDRLoader }
-from 'three/addons/webxr/HDRLoader.js';
-
+import { ARButton } from 'three/addons/webxr/ARButton.js';
+import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
+import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
 
 var scene;
 var camera;
 var renderer;
-
 var reticle;
+var controller;
 var controls;
 
 var hitTestSource = null;
@@ -25,11 +16,11 @@ var hitTestSourceRequested = false;
 
 var current_object = null;
 var loading_model = null;
-
 var selected_model = '1';
 
 var placed_objects = [];
 
+var clock = new THREE.Clock();
 
 init();
 
@@ -38,7 +29,6 @@ function init(){
 
     scene = new THREE.Scene();
 
-
     camera = new THREE.PerspectiveCamera(
         70,
         window.innerWidth / window.innerHeight,
@@ -46,13 +36,11 @@ function init(){
         20
     );
 
-
     var light = new THREE.HemisphereLight(
         0xffffff,
         0xbbbbff,
         3
     );
-
 
     light.position.set(
         0.5,
@@ -60,36 +48,24 @@ function init(){
         0.25
     );
 
-
     scene.add(light);
 
 
     renderer = new THREE.WebGLRenderer({
-
         antialias: true,
-
         alpha: true
-
     });
 
-
-    renderer.setPixelRatio(
-        window.devicePixelRatio
-    );
-
+    renderer.setPixelRatio(window.devicePixelRatio);
 
     renderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
 
-
     renderer.xr.enabled = true;
 
-
-    document.body.appendChild(
-        renderer.domElement
-    );
+    document.body.appendChild(renderer.domElement);
 
 
     controls = new OrbitControls(
@@ -97,13 +73,7 @@ function init(){
         renderer.domElement
     );
 
-
-    controls.target.set(
-        0,
-        0,
-        0
-    );
-
+    controls.target.set(0, 0, 0);
 
     controls.update();
 
@@ -119,46 +89,32 @@ function init(){
         ],
 
         domOverlay: {
-
-            root:
-                document.getElementById(
-                    'content'
-                )
-
+            root: document.getElementById('content')
         }
 
     };
 
 
     document.body.appendChild(
-
         ARButton.createButton(
             renderer,
             options
         )
-
     );
 
 
-    var geometry =
-        new THREE.RingGeometry(
-            0.15,
-            0.20,
-            32
-        );
-
-
-    geometry.rotateX(
-        -Math.PI / 2
+    var geometry = new THREE.RingGeometry(
+        0.15,
+        0.20,
+        32
     );
 
+    geometry.rotateX(-Math.PI / 2);
 
-    var material =
-        new THREE.MeshBasicMaterial({
 
-            color: 0xffffff
-
-        });
+    var material = new THREE.MeshBasicMaterial({
+        color: 0xffffff
+    });
 
 
     reticle = new THREE.Mesh(
@@ -166,11 +122,9 @@ function init(){
         material
     );
 
-
     reticle.matrixAutoUpdate = false;
 
     reticle.visible = false;
-
 
     scene.add(reticle);
 
@@ -180,27 +134,21 @@ function init(){
         function(){
 
             hitTestSource = null;
-
             hitTestSourceRequested = false;
 
             reticle.visible = false;
 
+            clock.start();
 
             document.getElementById(
                 'place-button'
             ).style.display = 'none';
 
-
             document.getElementById(
                 'clear-button'
             ).style.display = 'block';
 
-
-            if(controls){
-
-                controls.enabled = false;
-
-            }
+            controls.enabled = false;
 
         }
     );
@@ -211,27 +159,19 @@ function init(){
         function(){
 
             hitTestSource = null;
-
             hitTestSourceRequested = false;
 
             reticle.visible = false;
-
 
             document.getElementById(
                 'place-button'
             ).style.display = 'none';
 
-
             document.getElementById(
                 'clear-button'
             ).style.display = 'none';
 
-
-            if(controls){
-
-                controls.enabled = true;
-
-            }
+            controls.enabled = true;
 
         }
     );
@@ -271,9 +211,7 @@ function init(){
     );
 
 
-    renderer.setAnimationLoop(
-        animate
-    );
+    renderer.setAnimationLoop(animate);
 
 
     loadModel('1');
@@ -287,62 +225,62 @@ function loadModel(model){
 
     selected_model = model;
 
-
-    var loader =
-        new GLTFLoader();
+    var loader = new GLTFLoader();
 
 
     loader.load(
-
         'model/' + model + '.glb',
 
         function(gltf){
 
-            if(
-                loading_model !== model
-            ){
-
+            if(loading_model !== model){
                 return;
-
             }
 
 
             if(current_object){
 
-                scene.remove(
-                    current_object
-                );
+                scene.remove(current_object);
 
                 current_object = null;
 
             }
 
 
-            current_object =
-                gltf.scene;
+            current_object = gltf.scene;
+
+            scene.add(current_object);
 
 
-            scene.add(
-                current_object
-            );
+            /* ANIMATION */
 
+            if(gltf.animations.length > 0){
 
-            var box =
-                new THREE.Box3()
-                .setFromObject(
+                var mixer = new THREE.AnimationMixer(
                     current_object
                 );
 
-
-            var center =
-                box.getCenter(
-                    new THREE.Vector3()
+                var action = mixer.clipAction(
+                    gltf.animations[0]
                 );
 
+                action.play();
 
-            current_object.position.sub(
-                center
+                current_object.userData.mixer = mixer;
+
+            }
+
+
+            var box = new THREE.Box3().setFromObject(
+                current_object
             );
+
+            var center = box.getCenter(
+                new THREE.Vector3()
+            );
+
+
+            current_object.position.sub(center);
 
 
             current_object.position.set(
@@ -355,12 +293,9 @@ function loadModel(model){
             current_object.visible = true;
 
 
-            if(
-                renderer.xr.isPresenting
-            ){
+            if(renderer.xr.isPresenting){
 
-                current_object.visible =
-                    false;
+                current_object.visible = false;
 
             }
 
@@ -371,14 +306,11 @@ function loadModel(model){
         function(error){
 
             console.error(
-                'Erreur lors du chargement de '
-                + model
-                + '.glb',
+                'Erreur lors du chargement :',
                 error
             );
 
         }
-
     );
 
 }
@@ -391,16 +323,9 @@ $('.ar-object').click(
 
         event.stopPropagation();
 
-
-        var model =
-            $(this).attr('id');
-
-
-        selected_model = model;
-
+        var model = $(this).attr('id');
 
         loadModel(model);
-
 
         closeNav();
 
@@ -411,23 +336,15 @@ $('.ar-object').click(
 function arPlace(){
 
     if(!renderer.xr.isPresenting){
-
         return;
-
     }
-
 
     if(!current_object){
-
         return;
-
     }
 
-
     if(!reticle.visible){
-
         return;
-
     }
 
 
@@ -452,9 +369,7 @@ function arPlace(){
     ).style.display = 'none';
 
 
-    loadModel(
-        selected_model
-    );
+    loadModel(selected_model);
 
 }
 
@@ -467,9 +382,17 @@ function clearObjects(){
         i++
     ){
 
-        scene.remove(
-            placed_objects[i]
-        );
+        var object = placed_objects[i];
+
+
+        if(object.userData.mixer){
+
+            object.userData.mixer.stopAllAction();
+
+        }
+
+
+        scene.remove(object);
 
     }
 
@@ -479,9 +402,13 @@ function clearObjects(){
 
     if(current_object){
 
-        scene.remove(
-            current_object
-        );
+        if(current_object.userData.mixer){
+
+            current_object.userData.mixer.stopAllAction();
+
+        }
+
+        scene.remove(current_object);
 
         current_object = null;
 
@@ -493,17 +420,48 @@ function clearObjects(){
     ).style.display = 'none';
 
 
-    loadModel(
-        selected_model
-    );
+    loadModel(selected_model);
 
 }
 
 
-function animate(
-    timestamp,
-    frame
-){
+function animate(timestamp, frame){
+
+    var delta = clock.getDelta();
+
+
+    /* ANIMATION DES PERSONNAGES PLACÉS */
+
+    for(
+        var i = 0;
+        i < placed_objects.length;
+        i++
+    ){
+
+        if(placed_objects[i].userData.mixer){
+
+            placed_objects[i].userData.mixer.update(
+                delta
+            );
+
+        }
+
+    }
+
+
+    /* ANIMATION DU PERSONNAGE EN ATTENTE */
+
+    if(
+        current_object &&
+        current_object.userData.mixer
+    ){
+
+        current_object.userData.mixer.update(
+            delta
+        );
+
+    }
+
 
     if(!frame){
 
@@ -520,7 +478,6 @@ function animate(
     var referenceSpace =
         renderer.xr.getReferenceSpace();
 
-
     var session =
         renderer.xr.getSession();
 
@@ -530,48 +487,40 @@ function animate(
         hitTestSourceRequested = true;
 
 
-        session
-            .requestReferenceSpace(
-                'viewer'
-            )
+        session.requestReferenceSpace(
+            'viewer'
+        )
 
-            .then(
-                function(viewerSpace){
+        .then(
+            function(viewerSpace){
 
-                    return session
-                        .requestHitTestSource({
+                return session.requestHitTestSource({
+                    space: viewerSpace
+                });
 
-                            space:
-                                viewerSpace
+            }
+        )
 
-                        });
+        .then(
+            function(source){
 
-                }
-            )
+                hitTestSource = source;
 
-            .then(
-                function(source){
+            }
+        )
 
-                    hitTestSource =
-                        source;
+        .catch(
+            function(error){
 
-                }
-            )
+                console.error(
+                    'Erreur Hit Test:',
+                    error
+                );
 
-            .catch(
-                function(error){
+                hitTestSourceRequested = false;
 
-                    console.error(
-                        'Erreur Hit Test :',
-                        error
-                    );
-
-
-                    hitTestSourceRequested =
-                        false;
-
-                }
-            );
+            }
+        );
 
     }
 
@@ -586,8 +535,7 @@ function animate(
 
         if(hitTestResults.length > 0){
 
-            var hit =
-                hitTestResults[0];
+            var hit = hitTestResults[0];
 
 
             var pose =
@@ -610,16 +558,7 @@ function animate(
 
                     document.getElementById(
                         'place-button'
-                    ).style.display =
-                        'block';
-
-                }
-                else{
-
-                    document.getElementById(
-                        'place-button'
-                    ).style.display =
-                        'none';
+                    ).style.display = 'block';
 
                 }
 
@@ -633,8 +572,7 @@ function animate(
 
             document.getElementById(
                 'place-button'
-            ).style.display =
-                'none';
+            ).style.display = 'none';
 
         }
 
@@ -654,7 +592,6 @@ function onWindowResize(){
     camera.aspect =
         window.innerWidth /
         window.innerHeight;
-
 
     camera.updateProjectionMatrix();
 
