@@ -4,10 +4,13 @@ import { ARButton }
 from 'three/addons/webxr/ARButton.js';
 
 import { GLTFLoader }
-from 'three/addons/loaders/GLTFLoader.js';
+from 'three/addons/webxr/GLTFLoader.js';
 
 import { OrbitControls }
-from 'three/addons/controls/OrbitControls.js';
+from 'three/addons/webxr/OrbitControls.js';
+
+import { HDRLoader }
+from 'three/addons/webxr/HDRLoader.js';
 
 
 var scene;
@@ -15,24 +18,18 @@ var camera;
 var renderer;
 
 var reticle;
+var controller;
 var controls;
 
 var hitTestSource = null;
 var hitTestSourceRequested = false;
 
 var current_object = null;
-
 var loading_model = null;
 
 var selected_model = '1';
 
 var placed_objects = [];
-
-var touchDown = false;
-var touchX = 0;
-var touchY = 0;
-var deltaX = 0;
-var deltaY = 0;
 
 
 init();
@@ -57,28 +54,15 @@ function init(){
         3
     );
 
+
     light.position.set(
         0.5,
         1,
         0.25
     );
 
+
     scene.add(light);
-
-
-    var directionalLight =
-        new THREE.DirectionalLight(
-            0xffffff,
-            1
-        );
-
-    directionalLight.position.set(
-        0,
-        1,
-        1
-    );
-
-    scene.add(directionalLight);
 
 
     renderer = new THREE.WebGLRenderer({
@@ -94,10 +78,12 @@ function init(){
         window.devicePixelRatio
     );
 
+
     renderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
+
 
     renderer.xr.enabled = true;
 
@@ -116,18 +102,24 @@ function init(){
     controls.target.set(
         0,
         0,
-        -0.2
+        0
     );
 
-    controls.enableDamping = true;
-
-    controls.dampingFactor = 0.05;
-
-    controls.minDistance = 2;
-
-    controls.maxDistance = 10;
 
     controls.update();
+
+
+    controller =
+        renderer.xr.getController(0);
+
+
+    controller.addEventListener(
+        'select',
+        onSelect
+    );
+
+
+    scene.add(controller);
 
 
     var options = {
@@ -208,25 +200,11 @@ function init(){
             reticle.visible = false;
 
 
-            if(current_object){
+            if(controls){
 
-                current_object.visible =
-                    false;
+                controls.enabled = false;
 
             }
-
-
-            controls.enabled = false;
-
-
-            document.getElementById(
-                'add-button'
-            ).style.display = 'block';
-
-
-            document.getElementById(
-                'clear-button'
-            ).style.display = 'block';
 
         }
     );
@@ -243,126 +221,16 @@ function init(){
             reticle.visible = false;
 
 
-            if(current_object){
-
-                current_object.visible =
-                    false;
-
-            }
-
-
-            controls.enabled = true;
-
-
             document.getElementById(
                 'place-button'
             ).style.display = 'none';
 
 
-            document.getElementById(
-                'add-button'
-            ).style.display = 'none';
+            if(controls){
 
-
-            document.getElementById(
-                'clear-button'
-            ).style.display = 'none';
-
-        }
-    );
-
-
-    renderer.domElement.addEventListener(
-        'touchstart',
-        function(e){
-
-            e.preventDefault();
-
-            touchDown = true;
-
-            touchX =
-                e.touches[0].pageX;
-
-            touchY =
-                e.touches[0].pageY;
-
-        },
-        false
-    );
-
-
-    renderer.domElement.addEventListener(
-        'touchend',
-        function(e){
-
-            e.preventDefault();
-
-            touchDown = false;
-
-        },
-        false
-    );
-
-
-    renderer.domElement.addEventListener(
-        'touchmove',
-        function(e){
-
-            e.preventDefault();
-
-
-            if(!touchDown){
-
-                return;
+                controls.enabled = true;
 
             }
-
-
-            deltaX =
-                e.touches[0].pageX
-                - touchX;
-
-            deltaY =
-                e.touches[0].pageY
-                - touchY;
-
-
-            touchX =
-                e.touches[0].pageX;
-
-            touchY =
-                e.touches[0].pageY;
-
-
-            rotateObject();
-
-        },
-        false
-    );
-
-
-    $("#place-button").click(
-        function(){
-
-            arPlace();
-
-        }
-    );
-
-
-    $("#add-button").click(
-        function(){
-
-            addObject();
-
-        }
-    );
-
-
-    $("#clear-button").click(
-        function(){
-
-            clearObjects();
 
         }
     );
@@ -474,13 +342,10 @@ function loadModel(model){
         function(error){
 
             console.error(
-
                 'Erreur lors du chargement de '
                 + model
                 + '.glb',
-
                 error
-
             );
 
         }
@@ -512,30 +377,25 @@ $('.ar-object').click(
 );
 
 
-function arPlace(){
+function onSelect(){
 
-    if(
-        !current_object
-    ){
+    if(!current_object){
 
         return;
 
     }
 
 
-    if(
-        !reticle.visible
-    ){
+    if(!reticle.visible){
 
         return;
 
     }
 
 
-    current_object.position
-        .setFromMatrixPosition(
-            reticle.matrix
-        );
+    current_object.position.setFromMatrixPosition(
+        reticle.matrix
+    );
 
 
     current_object.visible = true;
@@ -549,32 +409,6 @@ function arPlace(){
     current_object = null;
 
 
-    document.getElementById(
-        'place-button'
-    ).style.display = 'none';
-
-}
-
-
-function addObject(){
-
-    if(
-        !renderer.xr.isPresenting
-    ){
-
-        return;
-
-    }
-
-
-    if(current_object){
-
-        current_object.visible =
-            false;
-
-    }
-
-
     loadModel(
         selected_model
     );
@@ -582,59 +416,45 @@ function addObject(){
 }
 
 
-function clearObjects(){
+$("#place-button").click(
+    function(){
 
-    placed_objects.forEach(
-        function(object){
+        if(!current_object){
 
-            scene.remove(
-                object
-            );
+            return;
 
         }
-    );
 
 
-    placed_objects = [];
+        if(!reticle.visible){
+
+            return;
+
+        }
 
 
-    if(current_object){
+        current_object.position.setFromMatrixPosition(
+            reticle.matrix
+        );
 
-        scene.remove(
+
+        current_object.visible = true;
+
+
+        placed_objects.push(
             current_object
         );
 
+
         current_object = null;
 
-    }
 
-
-    if(
-        renderer.xr.isPresenting
-    ){
-
-        loadModel(
-            selected_model
-        );
+        document.getElementById(
+            'place-button'
+        ).style.display = 'none';
 
     }
-
-}
-
-
-function rotateObject(){
-
-    if(
-        current_object &&
-        reticle.visible
-    ){
-
-        current_object.rotation.y +=
-            deltaX / 100;
-
-    }
-
-}
+);
 
 
 function animate(
@@ -662,9 +482,7 @@ function animate(
         renderer.xr.getSession();
 
 
-    if(
-        !hitTestSourceRequested
-    ){
+    if(!hitTestSourceRequested){
 
         hitTestSourceRequested = true;
 
@@ -723,9 +541,7 @@ function animate(
             );
 
 
-        if(
-            hitTestResults.length > 0
-        ){
+        if(hitTestResults.length > 0){
 
             var hit =
                 hitTestResults[0];
@@ -754,18 +570,12 @@ function animate(
                     ).style.display =
                         'block';
 
-                }else{
-
-                    document.getElementById(
-                        'place-button'
-                    ).style.display =
-                        'none';
-
                 }
 
             }
 
-        }else{
+        }
+        else{
 
             reticle.visible = false;
 
@@ -798,9 +608,13 @@ function onWindowResize(){
     camera.updateProjectionMatrix();
 
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
+    if(!renderer.xr.isPresenting){
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+    }
 
 }

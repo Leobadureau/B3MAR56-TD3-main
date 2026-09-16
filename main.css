@@ -162,7 +162,7 @@ canvas {
     left: calc(50% - 50px);
 
     width: 100px;
-    height: 40px;
+    height: 35px;
 
     display: none;
 
@@ -177,74 +177,6 @@ canvas {
     color: white;
 
     font-size: 15px;
-
-    font-weight: bold;
-
-    pointer-events: auto;
-
-    touch-action: manipulation;
-
-}
-
-
-#add-button {
-
-    position: absolute;
-
-    bottom: 70px;
-
-    left: calc(50% - 50px);
-
-    width: 100px;
-    height: 40px;
-
-    display: none;
-
-    z-index: 300;
-
-    border: none;
-
-    border-radius: 8px;
-
-    background-color: rgba(0, 0, 0, 0.75);
-
-    color: white;
-
-    font-size: 15px;
-
-    font-weight: bold;
-
-    pointer-events: auto;
-
-    touch-action: manipulation;
-
-}
-
-
-#clear-button {
-
-    position: absolute;
-
-    top: 20px;
-
-    right: 20px;
-
-    width: 80px;
-    height: 40px;
-
-    display: none;
-
-    z-index: 300;
-
-    border: none;
-
-    border-radius: 8px;
-
-    background-color: rgba(0, 0, 0, 0.75);
-
-    color: white;
-
-    font-size: 13px;
 
     font-weight: bold;
 
