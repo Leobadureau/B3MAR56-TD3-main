@@ -1,127 +1,154 @@
- html,
-    body {
-        margin: 0;
-        padding: 0;
+html,
+body {
+    margin: 0;
+    padding: 0;
 
-        width: 100%;
-        height: 100%;
+    width: 100%;
+    height: 100%;
 
-        overflow: hidden;
+    overflow: hidden;
 
-  
-        color: #fff;
+    color: #fff;
 
-        font-family: Arial, sans-serif;
-    }
-
-
-    body {
-        position: relative;
-    }
+    font-family: Arial, sans-serif;
+}
 
 
-    canvas {
-        display: block;
-
-        width: 100%;
-        height: 100%;
-    }
+body {
+    position: relative;
+}
 
 
-    /* ==================================================
-       MENU LATÉRAL
-    ================================================== */
+/* ==================================================
+   CANVAS
+================================================== */
 
-    .sidenav {
-        height: 100%;
+canvas {
+    display: block;
 
-        width: 0;
+    width: 100%;
+    height: 100%;
 
-        position: fixed;
+    position: fixed;
+    top: 0;
+    left: 0;
 
-        z-index: 20;
-
-        top: 0;
-        left: 0;
-
-        background-color: #111;
-
-        overflow-x: hidden;
-
-        transition: 0.4s;
-
-        padding-top: 60px;
-    }
+    z-index: 1;
+}
 
 
-    .sidenav a {
-        padding: 12px 8px 12px 32px;
+/* ==================================================
+   CONTENEUR DOM OVERLAY AR
+================================================== */
 
-        text-decoration: none;
+#content {
+    position: fixed;
 
-        font-size: 20px;
+    top: 0;
+    left: 0;
 
-        color: #fff;
+    width: 100%;
+    height: 100%;
 
-        display: block;
+    z-index: 100;
 
-        transition: 0.3s;
-    }
-
-
-    .sidenav a:hover {
-        color: #aaa;
-    }
-
-
-    /* Bouton X */
-
-    .sidenav .closebtn {
-        position: absolute;
-
-        top: 10px;
-        right: 20px;
-
-        font-size: 36px;
-
-        margin-left: 50px;
-    }
+    pointer-events: none;
+}
 
 
-    /* ==================================================
-       BOUTON MENU
-    ================================================== */
+/* ==================================================
+   MENU LATÉRAL
+================================================== */
 
-    #menuButton {
-        position: fixed;
+.sidenav {
+    height: 100%;
 
-        top: 20px;
-        left: 20px;
+    width: 0;
 
-        z-index: 10;
+    position: fixed;
 
-        font-size: 30px;
+    z-index: 200;
 
-        cursor: pointer;
+    top: 0;
+    left: 0;
 
-        color: white;
+    background-color: rgba(17, 17, 17, 0.95);
 
-        background-color: rgba(0, 0, 0, 0.65);
+    overflow-x: hidden;
 
-        padding: 5px 12px;
+    transition: 0.4s;
 
-        border-radius: 8px;
-    }
+    padding-top: 60px;
+
+    pointer-events: auto;
+}
 
 
-    #content{
-        pointer-events:none;
-        }
-        
-        #mySidenav{
-        pointer-events:auto;
-        }
-        
-        #menuButton{
-        pointer-events:auto;
-        }
+.sidenav a {
+    padding: 12px 8px 12px 32px;
+
+    text-decoration: none;
+
+    font-size: 20px;
+
+    color: #fff;
+
+    display: block;
+
+    transition: 0.3s;
+
+    pointer-events: auto;
+}
+
+
+.sidenav a:hover {
+    color: #aaa;
+}
+
+
+/* ==================================================
+   BOUTON X
+================================================== */
+
+.sidenav .closebtn {
+    position: absolute;
+
+    top: 10px;
+    right: 20px;
+
+    font-size: 36px;
+
+    margin-left: 50px;
+
+    pointer-events: auto;
+}
+
+
+/* ==================================================
+   BOUTON MENU
+================================================== */
+
+#menuButton {
+    position: fixed;
+
+    top: 20px;
+    left: 20px;
+
+    z-index: 300;
+
+    font-size: 30px;
+
+    cursor: pointer;
+
+    color: white;
+
+    background-color: rgba(0, 0, 0, 0.65);
+
+    padding: 5px 12px;
+
+    border-radius: 8px;
+
+    pointer-events: auto;
+
+    touch-action: manipulation;
+}
