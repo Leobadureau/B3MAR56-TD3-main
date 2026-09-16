@@ -368,21 +368,17 @@ function loadModel(model) {
 // MENU
 // --------------------------------------------------
 
-$('.ar-object').click(
-    function (event) {
+$('.ar-object').click(function (event) {
 
-        event.preventDefault();
+    event.preventDefault();
 
-        const model =
-            $(this).attr('id');
+    const model = $(this).attr('id');
 
-        // On peut changer de modèle
-        // même pendant l'AR
-        loadModel(model);
+    // Change le modèle même pendant l'AR
+    loadModel(model);
 
-        closeNav();
-    }
-);
+    closeNav();
+});
 
 
 // --------------------------------------------------
