@@ -155,28 +155,31 @@ canvas {
 
 #place-button {
 
-    position: absolute;
+    position: fixed;
 
-    bottom: 20px;
+    bottom: 25px;
 
-    left: calc(50% - 50px);
+    left: 50%;
 
-    width: 100px;
-    height: 40px;
-
-    display: none;
+    transform: translateX(-50%);
 
     z-index: 300;
+
+    width: 110px;
+
+    height: 45px;
+
+    display: none;
 
     border: none;
 
     border-radius: 8px;
 
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: rgba(0, 0, 0, 0.8);
 
     color: white;
 
-    font-size: 15px;
+    font-size: 16px;
 
     font-weight: bold;
 

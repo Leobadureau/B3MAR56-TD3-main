@@ -186,6 +186,11 @@ function init(){
             reticle.visible = false;
 
 
+            document.getElementById(
+                'place-button'
+            ).style.display = 'none';
+
+
             if(controls){
 
                 controls.enabled = false;
@@ -217,6 +222,20 @@ function init(){
                 controls.enabled = true;
 
             }
+
+        }
+    );
+
+
+    document.getElementById(
+        'place-button'
+    ).addEventListener(
+        'click',
+        function(event){
+
+            event.stopPropagation();
+
+            arPlace();
 
         }
     );
@@ -316,7 +335,8 @@ function loadModel(model){
                 renderer.xr.isPresenting
             ){
 
-                current_object.visible = false;
+                current_object.visible =
+                    false;
 
             }
 
@@ -345,6 +365,8 @@ $('.ar-object').click(
 
         event.preventDefault();
 
+        event.stopPropagation();
+
 
         var model =
             $(this).attr('id');
@@ -362,16 +384,14 @@ $('.ar-object').click(
 );
 
 
-$("#place-button").click(
-    function(){
+function arPlace(){
 
-        arPlace();
+    if(!renderer.xr.isPresenting){
+
+        return;
 
     }
-);
 
-
-function arPlace(){
 
     if(!current_object){
 
@@ -406,6 +426,11 @@ function arPlace(){
     document.getElementById(
         'place-button'
     ).style.display = 'none';
+
+
+    loadModel(
+        selected_model
+    );
 
 }
 
@@ -522,6 +547,14 @@ function animate(
                         'place-button'
                     ).style.display =
                         'block';
+
+                }
+                else{
+
+                    document.getElementById(
+                        'place-button'
+                    ).style.display =
+                        'none';
 
                 }
 
