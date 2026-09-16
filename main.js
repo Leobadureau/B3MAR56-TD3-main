@@ -191,6 +191,11 @@ function init(){
             ).style.display = 'none';
 
 
+            document.getElementById(
+                'clear-button'
+            ).style.display = 'block';
+
+
             if(controls){
 
                 controls.enabled = false;
@@ -217,6 +222,11 @@ function init(){
             ).style.display = 'none';
 
 
+            document.getElementById(
+                'clear-button'
+            ).style.display = 'none';
+
+
             if(controls){
 
                 controls.enabled = true;
@@ -236,6 +246,20 @@ function init(){
             event.stopPropagation();
 
             arPlace();
+
+        }
+    );
+
+
+    document.getElementById(
+        'clear-button'
+    ).addEventListener(
+        'click',
+        function(event){
+
+            event.stopPropagation();
+
+            clearObjects();
 
         }
     );
@@ -421,6 +445,47 @@ function arPlace(){
 
 
     current_object = null;
+
+
+    document.getElementById(
+        'place-button'
+    ).style.display = 'none';
+
+
+    loadModel(
+        selected_model
+    );
+
+}
+
+
+function clearObjects(){
+
+    for(
+        var i = 0;
+        i < placed_objects.length;
+        i++
+    ){
+
+        scene.remove(
+            placed_objects[i]
+        );
+
+    }
+
+
+    placed_objects = [];
+
+
+    if(current_object){
+
+        scene.remove(
+            current_object
+        );
+
+        current_object = null;
+
+    }
 
 
     document.getElementById(

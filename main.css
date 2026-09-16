@@ -188,3 +188,38 @@ canvas {
     touch-action: manipulation;
 
 }
+
+
+#clear-button {
+
+    position: fixed;
+
+    bottom: 25px;
+
+    right: 20px;
+
+    z-index: 300;
+
+    width: 90px;
+
+    height: 45px;
+
+    display: none;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background-color: rgba(0, 0, 0, 0.8);
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    pointer-events: auto;
+
+    touch-action: manipulation;
+
+}
