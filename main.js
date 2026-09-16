@@ -18,6 +18,9 @@ let hitTestSourceRequested = false;
 let current_object = null;
 let loading_model = null;
 
+// Tous les modèles déjà placés
+let placed_objects = [];
+
 
 // --------------------------------------------------
 // INITIALISATION
@@ -187,7 +190,8 @@ function init() {
             reticle.visible = false;
 
 
-            // Cache le modèle au début de l'AR
+            // Cache uniquement le modèle
+            // actuellement en attente de placement
             if (current_object) {
                 current_object.visible = false;
             }
@@ -217,7 +221,8 @@ function init() {
             }
 
 
-            // Remet le modèle devant la caméra
+            // Remet le modèle en attente
+            // devant la caméra
             if (current_object) {
 
                 current_object.position.set(
@@ -266,17 +271,6 @@ function init() {
 function loadModel(model) {
 
     loading_model = model;
-
-
-    // Supprime l'ancien modèle
-    if (current_object) {
-
-        scene.remove(
-            current_object
-        );
-
-        current_object = null;
-    }
 
 
     const loader =
@@ -342,14 +336,18 @@ function loadModel(model) {
             current_object.visible = true;
 
 
-            // Pendant l'AR, on le cache
+            // Pendant l'AR, on cache
+            // le nouveau modèle en attente
+            // de placement
             if (renderer.xr.isPresenting) {
 
                 current_object.visible = false;
             }
         },
 
+
         undefined,
+
 
         function (error) {
 
@@ -372,10 +370,13 @@ $('.ar-object').click(function (event) {
 
     event.preventDefault();
 
-    const model = $(this).attr('id');
+    const model =
+        $(this).attr('id');
+
 
     // Change le modèle même pendant l'AR
     loadModel(model);
+
 
     closeNav();
 });
@@ -406,6 +407,22 @@ function onSelect() {
 
     // Affiche le modèle
     current_object.visible = true;
+
+
+    // --------------------------------------------------
+    // CONSERVE LE MODELE DANS LA SCENE
+    // --------------------------------------------------
+
+    placed_objects.push(
+        current_object
+    );
+
+
+    // --------------------------------------------------
+    // PLUS DE MODELE EN ATTENTE
+    // --------------------------------------------------
+
+    current_object = null;
 }
 
 
