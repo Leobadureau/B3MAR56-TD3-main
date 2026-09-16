@@ -22,11 +22,11 @@ var placed_objects = [];
 
 var clock = new THREE.Clock();
 
-var touchDown;
-var touchX;
-var touchY;
-var deltaX;
-var deltaY;
+var touchDown = false;
+var touchX = 0;
+var touchY = 0;
+var deltaX = 0;
+var deltaY = 0;
 
 init();
 
@@ -88,7 +88,9 @@ function init(){
         'touchstart',
         function(e){
 
-            e.preventDefault();
+            if(e.touches.length !== 1){
+                return;
+            }
 
             touchDown = true;
 
@@ -96,20 +98,9 @@ function init(){
             touchY = e.touches[0].pageY;
 
         },
-        false
-    );
-
-
-    renderer.domElement.addEventListener(
-        'touchend',
-        function(e){
-
-            e.preventDefault();
-
-            touchDown = false;
-
-        },
-        false
+        {
+            passive: false
+        }
     );
 
 
@@ -117,11 +108,15 @@ function init(){
         'touchmove',
         function(e){
 
-            e.preventDefault();
-
             if(!touchDown){
                 return;
             }
+
+            if(e.touches.length !== 1){
+                return;
+            }
+
+            e.preventDefault();
 
             deltaX =
                 e.touches[0].pageX - touchX;
@@ -138,7 +133,35 @@ function init(){
             rotateObject();
 
         },
-        false
+        {
+            passive: false
+        }
+    );
+
+
+    renderer.domElement.addEventListener(
+        'touchend',
+        function(){
+
+            touchDown = false;
+
+        },
+        {
+            passive: false
+        }
+    );
+
+
+    renderer.domElement.addEventListener(
+        'touchcancel',
+        function(){
+
+            touchDown = false;
+
+        },
+        {
+            passive: false
+        }
     );
 
 
@@ -397,9 +420,28 @@ $('.ar-object').click(
 
 function rotateObject(){
 
-    if(current_object && reticle.visible){
+    var objectToRotate = null;
 
-        current_object.rotation.y += deltaX / 100;
+
+    if(placed_objects.length > 0){
+
+        objectToRotate =
+            placed_objects[
+                placed_objects.length - 1
+            ];
+
+    }
+    else if(current_object){
+
+        objectToRotate = current_object;
+
+    }
+
+
+    if(objectToRotate){
+
+        objectToRotate.rotation.y +=
+            deltaX / 100;
 
     }
 
