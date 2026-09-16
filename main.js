@@ -373,18 +373,12 @@ $('.ar-object').click(
 
         event.preventDefault();
 
-
         const model =
             $(this).attr('id');
 
-
-        // On change de modèle
-        // uniquement hors AR
-        if (!renderer.xr.isPresenting) {
-
-            loadModel(model);
-        }
-
+        // On peut changer de modèle
+        // même pendant l'AR
+        loadModel(model);
 
         closeNav();
     }
