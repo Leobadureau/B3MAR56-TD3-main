@@ -4,7 +4,6 @@ import { GLTFLoader } from 'three/addons/webxr/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/webxr/OrbitControls.js';
 import { HDRLoader } from 'three/addons/webxr/HDRLoader.js';
 
-
 let scene;
 let camera;
 let renderer;
@@ -18,24 +17,18 @@ let hitTestSourceRequested = false;
 let current_object = null;
 let loading_model = null;
 
+// Modèle actuellement sélectionné dans le menu
+let selected_model = '1';
+
 // Tous les modèles déjà placés
 let placed_objects = [];
 
-
-// --------------------------------------------------
-// INITIALISATION
-// --------------------------------------------------
-
 init();
-
 
 function init() {
 
-    // SCENE
     scene = new THREE.Scene();
 
-
-    // CAMERA
     camera = new THREE.PerspectiveCamera(
         70,
         window.innerWidth / window.innerHeight,
@@ -43,8 +36,6 @@ function init() {
         20
     );
 
-
-    // LUMIERE
     const light = new THREE.HemisphereLight(
         0xffffff,
         0xbbbbff,
@@ -59,8 +50,6 @@ function init() {
 
     scene.add(light);
 
-
-    // RENDERER
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true
@@ -81,11 +70,6 @@ function init() {
         renderer.domElement
     );
 
-
-    // --------------------------------------------------
-    // CONTROLS POUR ORDINATEUR
-    // --------------------------------------------------
-
     controls = new OrbitControls(
         camera,
         renderer.domElement
@@ -99,11 +83,6 @@ function init() {
 
     controls.update();
 
-
-    // --------------------------------------------------
-    // CONTROLLER
-    // --------------------------------------------------
-
     controller = renderer.xr.getController(0);
 
     controller.addEventListener(
@@ -113,12 +92,8 @@ function init() {
 
     scene.add(controller);
 
-
-    // --------------------------------------------------
-    // AR BUTTON
-    // --------------------------------------------------
-
     const options = {
+
         requiredFeatures: [
             'hit-test'
         ],
@@ -134,18 +109,12 @@ function init() {
         }
     };
 
-
     document.body.appendChild(
         ARButton.createButton(
             renderer,
             options
         )
     );
-
-
-    // --------------------------------------------------
-    // RETICULE
-    // --------------------------------------------------
 
     const geometry =
         new THREE.RingGeometry(
@@ -158,12 +127,10 @@ function init() {
         -Math.PI / 2
     );
 
-
     const material =
         new THREE.MeshBasicMaterial({
             color: 0xffffff
         });
-
 
     reticle = new THREE.Mesh(
         geometry,
@@ -176,9 +143,9 @@ function init() {
     scene.add(reticle);
 
 
-    // --------------------------------------------------
-    // SESSION AR
-    // --------------------------------------------------
+    // -------------------------------------------------
+    // DEBUT DE SESSION AR
+    // -------------------------------------------------
 
     renderer.xr.addEventListener(
         'sessionstart',
@@ -189,21 +156,21 @@ function init() {
 
             reticle.visible = false;
 
-
-            // Cache uniquement le modèle
-            // actuellement en attente de placement
+            // Le modèle en attente de placement est caché
             if (current_object) {
                 current_object.visible = false;
             }
 
-
-            // Désactive OrbitControls
             if (controls) {
                 controls.enabled = false;
             }
         }
     );
 
+
+    // -------------------------------------------------
+    // FIN DE SESSION AR
+    // -------------------------------------------------
 
     renderer.xr.addEventListener(
         'sessionend',
@@ -214,15 +181,11 @@ function init() {
 
             reticle.visible = false;
 
-
-            // Réactive les contrôles PC
             if (controls) {
                 controls.enabled = true;
             }
 
-
-            // Remet le modèle en attente
-            // devant la caméra
+            // Le modèle non placé revient à sa position initiale
             if (current_object) {
 
                 current_object.position.set(
@@ -237,45 +200,33 @@ function init() {
     );
 
 
-    // --------------------------------------------------
-    // RESIZE
-    // --------------------------------------------------
-
     window.addEventListener(
         'resize',
         onWindowResize
     );
 
 
-    // --------------------------------------------------
-    // ANIMATION
-    // --------------------------------------------------
-
     renderer.setAnimationLoop(
         animate
     );
 
 
-    // --------------------------------------------------
-    // MODELE PAR DEFAUT
-    // --------------------------------------------------
-
+    // Modèle chargé au démarrage
     loadModel('1');
 }
 
 
-// --------------------------------------------------
-// CHARGEMENT DU MODELE
-// --------------------------------------------------
+// -------------------------------------------------
+// CHARGEMENT D'UN MODELE
+// -------------------------------------------------
 
 function loadModel(model) {
 
     loading_model = model;
 
+    selected_model = model;
 
-    const loader =
-        new GLTFLoader();
-
+    const loader = new GLTFLoader();
 
     loader.load(
 
@@ -283,49 +234,54 @@ function loadModel(model) {
 
         function (gltf) {
 
-            // Vérifie que c'est toujours
-            // le modèle demandé
+            // Si un autre modèle a été sélectionné
+            // pendant le chargement, on ignore celui-ci
             if (loading_model !== model) {
                 return;
             }
 
 
+            // Supprime uniquement le modèle qui était
+            // en attente de placement.
+            //
+            // Les modèles déjà placés ne sont PAS supprimés.
+            if (current_object) {
+
+                scene.remove(
+                    current_object
+                );
+
+                current_object = null;
+            }
+
+
+            // Nouveau modèle en attente
             current_object =
                 gltf.scene;
 
-
-            // Ajout à la scène
             scene.add(
                 current_object
             );
 
 
-            // --------------------------------------------------
-            // CENTRAGE
-            // --------------------------------------------------
-
+            // Centre le modèle
             const box =
                 new THREE.Box3()
                     .setFromObject(
                         current_object
                     );
 
-
             const center =
                 box.getCenter(
                     new THREE.Vector3()
                 );
-
 
             current_object.position.sub(
                 center
             );
 
 
-            // --------------------------------------------------
-            // POSITION SUR ORDINATEUR
-            // --------------------------------------------------
-
+            // Position de départ
             current_object.position.set(
                 0,
                 0,
@@ -336,18 +292,15 @@ function loadModel(model) {
             current_object.visible = true;
 
 
-            // Pendant l'AR, on cache
-            // le nouveau modèle en attente
-            // de placement
+            // Pendant l'AR, il sera affiché
+            // uniquement après détection d'une surface
             if (renderer.xr.isPresenting) {
 
                 current_object.visible = false;
             }
         },
 
-
         undefined,
-
 
         function (error) {
 
@@ -362,9 +315,9 @@ function loadModel(model) {
 }
 
 
-// --------------------------------------------------
-// MENU
-// --------------------------------------------------
+// -------------------------------------------------
+// MENU : CHANGEMENT DE MODELE
+// -------------------------------------------------
 
 $('.ar-object').click(function (event) {
 
@@ -374,71 +327,88 @@ $('.ar-object').click(function (event) {
         $(this).attr('id');
 
 
-    // Change le modèle même pendant l'AR
+    // On mémorise le modèle sélectionné
+    selected_model = model;
+
+
+    // On prépare un nouveau modèle
     loadModel(model);
 
 
+    // Ferme le menu
     closeNav();
 });
 
 
-// --------------------------------------------------
-// PLACEMENT AR
-// --------------------------------------------------
+// -------------------------------------------------
+// PLACEMENT D'UN MODELE
+// -------------------------------------------------
 
 function onSelect() {
 
+    // Aucun modèle à placer
     if (!current_object) {
         return;
     }
 
 
+    // Aucune surface détectée
     if (!reticle.visible) {
         return;
     }
 
 
-    // Position du modèle
-    // sur la surface détectée
+    // Place le modèle à l'endroit du reticle
     current_object.position.setFromMatrixPosition(
         reticle.matrix
     );
 
-
-    // Affiche le modèle
     current_object.visible = true;
 
 
-    // --------------------------------------------------
-    // CONSERVE LE MODELE DANS LA SCENE
-    // --------------------------------------------------
-
+    // On ajoute le modèle à la liste
+    // des modèles définitivement placés
     placed_objects.push(
         current_object
     );
 
 
-    // --------------------------------------------------
-    // PLUS DE MODELE EN ATTENTE
-    // --------------------------------------------------
-
+    // Il n'est plus le modèle en attente
     current_object = null;
+
+
+    // -------------------------------------------------
+    // IMPORTANT :
+    // On recharge automatiquement une nouvelle copie
+    // du MEME modèle.
+    //
+    // Ainsi, si item 1 est sélectionné :
+    //
+    // clic -> item 1
+    // clic -> item 1
+    // clic -> item 1
+    // clic -> item 1
+    // ...
+    //
+    // sans avoir besoin de retourner dans le menu.
+    // -------------------------------------------------
+
+    loadModel(
+        selected_model
+    );
 }
 
 
-// --------------------------------------------------
+// -------------------------------------------------
 // ANIMATION
-// --------------------------------------------------
+// -------------------------------------------------
 
 function animate(
     timestamp,
     frame
 ) {
 
-    // --------------------------------------------------
-    // MODE NORMAL / PC
-    // --------------------------------------------------
-
+    // Pas de session AR
     if (!frame) {
 
         renderer.render(
@@ -450,26 +420,20 @@ function animate(
     }
 
 
-    // --------------------------------------------------
-    // AR
-    // --------------------------------------------------
-
     const referenceSpace =
         renderer.xr.getReferenceSpace();
-
 
     const session =
         renderer.xr.getSession();
 
 
-    // --------------------------------------------------
-    // DEMANDE HIT TEST
-    // --------------------------------------------------
+    // -------------------------------------------------
+    // DEMANDE DU HIT TEST
+    // -------------------------------------------------
 
     if (!hitTestSourceRequested) {
 
         hitTestSourceRequested = true;
-
 
         session
             .requestReferenceSpace(
@@ -509,9 +473,9 @@ function animate(
     }
 
 
-    // --------------------------------------------------
-    // HIT TEST
-    // --------------------------------------------------
+    // -------------------------------------------------
+    // RECUPERATION DU HIT TEST
+    // -------------------------------------------------
 
     if (hitTestSource) {
 
@@ -551,9 +515,9 @@ function animate(
     }
 
 
-    // --------------------------------------------------
-    // RENDU
-    // --------------------------------------------------
+    // -------------------------------------------------
+    // AFFICHAGE
+    // -------------------------------------------------
 
     renderer.render(
         scene,
@@ -562,9 +526,9 @@ function animate(
 }
 
 
-// --------------------------------------------------
+// -------------------------------------------------
 // RESIZE
-// --------------------------------------------------
+// -------------------------------------------------
 
 function onWindowResize() {
 
@@ -575,8 +539,6 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
 
 
-    // Important :
-    // ne pas appeler setSize pendant l'AR
     if (!renderer.xr.isPresenting) {
 
         renderer.setSize(
