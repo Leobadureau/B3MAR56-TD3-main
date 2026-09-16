@@ -22,6 +22,12 @@ var placed_objects = [];
 
 var clock = new THREE.Clock();
 
+var touchDown;
+var touchX;
+var touchY;
+var deltaX;
+var deltaY;
+
 init();
 
 
@@ -76,6 +82,64 @@ function init(){
     controls.target.set(0, 0, 0);
 
     controls.update();
+
+
+    renderer.domElement.addEventListener(
+        'touchstart',
+        function(e){
+
+            e.preventDefault();
+
+            touchDown = true;
+
+            touchX = e.touches[0].pageX;
+            touchY = e.touches[0].pageY;
+
+        },
+        false
+    );
+
+
+    renderer.domElement.addEventListener(
+        'touchend',
+        function(e){
+
+            e.preventDefault();
+
+            touchDown = false;
+
+        },
+        false
+    );
+
+
+    renderer.domElement.addEventListener(
+        'touchmove',
+        function(e){
+
+            e.preventDefault();
+
+            if(!touchDown){
+                return;
+            }
+
+            deltaX =
+                e.touches[0].pageX - touchX;
+
+            deltaY =
+                e.touches[0].pageY - touchY;
+
+            touchX =
+                e.touches[0].pageX;
+
+            touchY =
+                e.touches[0].pageY;
+
+            rotateObject();
+
+        },
+        false
+    );
 
 
     var options = {
@@ -252,8 +316,6 @@ function loadModel(model){
             scene.add(current_object);
 
 
-            /* ANIMATION */
-
             if(gltf.animations.length > 0){
 
                 var mixer = new THREE.AnimationMixer(
@@ -331,6 +393,17 @@ $('.ar-object').click(
 
     }
 );
+
+
+function rotateObject(){
+
+    if(current_object && reticle.visible){
+
+        current_object.rotation.y += deltaX / 100;
+
+    }
+
+}
 
 
 function arPlace(){
@@ -430,8 +503,6 @@ function animate(timestamp, frame){
     var delta = clock.getDelta();
 
 
-    /* ANIMATION DES PERSONNAGES PLACÉS */
-
     for(
         var i = 0;
         i < placed_objects.length;
@@ -448,8 +519,6 @@ function animate(timestamp, frame){
 
     }
 
-
-    /* ANIMATION DU PERSONNAGE EN ATTENTE */
 
     if(
         current_object &&
