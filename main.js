@@ -18,7 +18,6 @@ var camera;
 var renderer;
 
 var reticle;
-var controller;
 var controls;
 
 var hitTestSource = null;
@@ -107,19 +106,6 @@ function init(){
 
 
     controls.update();
-
-
-    controller =
-        renderer.xr.getController(0);
-
-
-    controller.addEventListener(
-        'select',
-        onSelect
-    );
-
-
-    scene.add(controller);
 
 
     var options = {
@@ -330,8 +316,7 @@ function loadModel(model){
                 renderer.xr.isPresenting
             ){
 
-                current_object.visible =
-                    false;
+                current_object.visible = false;
 
             }
 
@@ -377,7 +362,16 @@ $('.ar-object').click(
 );
 
 
-function onSelect(){
+$("#place-button").click(
+    function(){
+
+        arPlace();
+
+    }
+);
+
+
+function arPlace(){
 
     if(!current_object){
 
@@ -409,52 +403,11 @@ function onSelect(){
     current_object = null;
 
 
-    loadModel(
-        selected_model
-    );
+    document.getElementById(
+        'place-button'
+    ).style.display = 'none';
 
 }
-
-
-$("#place-button").click(
-    function(){
-
-        if(!current_object){
-
-            return;
-
-        }
-
-
-        if(!reticle.visible){
-
-            return;
-
-        }
-
-
-        current_object.position.setFromMatrixPosition(
-            reticle.matrix
-        );
-
-
-        current_object.visible = true;
-
-
-        placed_objects.push(
-            current_object
-        );
-
-
-        current_object = null;
-
-
-        document.getElementById(
-            'place-button'
-        ).style.display = 'none';
-
-    }
-);
 
 
 function animate(
